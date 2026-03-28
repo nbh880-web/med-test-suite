@@ -8,6 +8,10 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
@@ -26,9 +30,6 @@
     <div class="watermark">© זכויות יוצרים לניתאי מלכה</div>
 
     <script type="text/babel">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
-
         const UNIVERSITIES = {
             mor: { name: 'מור / מרק"ם', desc: 'שאלון מחולק לסעיפים, התמקדות בקונפליקטים.', limit: 750 },
             bgu: { name: 'בן גוריון', desc: 'שאלון בלוק פתוח, התמקדות בעומק ומניעים.', limit: 1200 },
@@ -40,10 +41,9 @@
             const [db, setDb] = React.useState(null);
             const [keysError, setKeysError] = React.useState(false);
 
-            const [view, setView] = React.useState('home'); // home, multi, timed, martin
+            const [view, setView] = React.useState('home');
             const [uni, setUni] = React.useState('mor');
             
-            // Multi-AI / Timed State
             const [text, setText] = React.useState('');
             const [loading, setLoading] = React.useState(false);
             const [results, setResults] = React.useState(null);
@@ -54,34 +54,33 @@
             const [isRecording, setIsRecording] = React.useState(false);
             const [recognition, setRecognition] = React.useState(null);
 
-            // Martin State
             const [chat, setChat] = React.useState([{role: 'martin', text: 'שלום ניתאי. אני מרטין ואני אראיין אותך היום. בוא נתחיל - ספר לי על מקרה שבו היית צריך לשנות את דעתך בעקבות ביקורת שקיבלת.'}]);
             const [chatInput, setChatInput] = React.useState('');
             const [martinLoading, setMartinLoading] = React.useState(false);
 
-            // 1. משיכת המפתחות מהכספת בטעינה
             React.useEffect(() => {
                 fetch('/api/keys')
                     .then(res => {
-                        if(!res.ok) throw new Error("Network response was not ok");
+                        if(!res.ok) throw new Error("Network error");
                         return res.json();
                     })
                     .then(data => {
                         setKeys(data);
                         if(data.FIREBASE) {
                             try {
-                                const app = initializeApp({ apiKey: data.FIREBASE, projectId: "med-test-nitai" });
-                                setDb(getFirestore(app));
+                                if (!firebase.apps.length) {
+                                    firebase.initializeApp({ apiKey: data.FIREBASE, projectId: "med-test-nitai" });
+                                }
+                                setDb(firebase.firestore());
                             } catch(e) { console.warn("Firebase Init Error", e); }
                         }
                     })
                     .catch((err) => {
-                        console.error("Keys fetch error:", err);
+                        console.error(err);
                         setKeysError(true);
                     });
             }, []);
 
-            // 2. ניהול הטיימר
             React.useEffect(() => {
                 let interval = null;
                 if (timerActive && timer > 0) {
@@ -93,10 +92,9 @@
                 return () => clearInterval(interval);
             }, [timerActive, timer, isRecording, recognition]);
 
-            if (keysError) return <div class="text-center mt-20 p-6 bg-red-50 rounded-xl font-bold text-red-600 max-w-md mx-auto">שגיאה במשיכת המפתחות מהכספת. וודא שקובץ `api/keys.js` קיים והעלת אותו ל-GitHub.</div>;
-            if (!keys) return <div class="flex flex-col items-center justify-center min-h-screen"><span class="loader border-orange-200 border-top-orange-800 w-12 h-12 mb-4"></span><p class="font-bold text-slate-500">מתחבר לכספת המאובטחת...</p></div>;
+            if (keysError) return <div class="text-center mt-20 p-6 bg-red-50 rounded-xl font-bold text-red-600 max-w-md mx-auto shadow">שגיאה במשיכת המפתחות מהכספת. וודא שקובץ api/keys.js קיים ב-GitHub.</div>;
+            if (!keys) return <div class="flex flex-col items-center justify-center min-h-screen"><span class="loader border-slate-200 border-top-orange-800 w-12 h-12 mb-4"></span><p class="font-bold text-slate-500">פותח כספת מאובטחת...</p></div>;
 
-            // --- Multi-AI Logic ---
             const getSysPrompt = () => `אתה בוחן קפדני במיוני רפואה. המסלול: ${UNIVERSITIES[uni].name}. מגבלת תווים רצויה: ${UNIVERSITIES[uni].limit}.
 Evaluate strictly based on this Rubric (0-100). Do not flatter.
 Part A: Technical (20) - Character limit adherence, Completeness.
@@ -110,7 +108,7 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                 if (text.length < 20) return alert("אנא כתוב תשובה מלאה קודם.");
                 setLoading(true); setResults(null);
                 try {
-                    if(db) await addDoc(collection(db, "evaluations"), { content: text, type: 'multi-ai', uni: uni, timestamp: serverTimestamp() });
+                    if(db) await db.collection("evaluations").add({ content: text, type: 'multi-ai', uni: uni, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
                     const prompt = `תשובה לבדיקה (אורך: ${text.length} תווים):\n${text}`;
                     
                     const fetchModel = async (url, body, headers={}) => {
@@ -140,7 +138,6 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                 finally { setLoading(false); }
             };
 
-            // --- Martin Live Logic ---
             const handleMartinSend = async () => {
                 if(!chatInput.trim() || !keys.GEMINI) return;
                 const newChat = [...chat, {role: 'user', text: chatInput}];
@@ -168,7 +165,6 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                 finally { setMartinLoading(false); }
             };
 
-            // --- Audio Recording Logic ---
             const toggleRecording = () => {
                 if (isRecording && recognition) {
                     recognition.stop();
@@ -194,7 +190,6 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                 }
             };
 
-            // --- UI Helpers ---
             const formatTime = (seconds) => {
                 const m = Math.floor(seconds / 60);
                 const s = seconds % 60;
@@ -245,14 +240,13 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                             <h1 class="text-xl font-black text-slate-800 tracking-tight">Med-Test <span class="text-orange-700">Pro</span></h1>
                         </div>
                         {view !== 'home' && (
-                            <select value={uni} onChange={e=>setUni(e.target.value)} class="bg-slate-100 border-none text-xs font-bold py-2 px-4 rounded-full focus:ring-0 cursor-pointer">
+                            <select value={uni} onChange={e=>setUni(e.target.value)} class="bg-slate-100 border-none text-xs font-bold py-2 px-4 rounded-full focus:ring-0 cursor-pointer outline-none">
                                 {Object.entries(UNIVERSITIES).map(([k,v]) => <option key={k} value={k}>{v.name}</option>)}
                             </select>
                         )}
                     </header>
 
                     <main class="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
-                        {/* --- HOME VIEW --- */}
                         {view === 'home' && (
                             <div class="max-w-3xl mx-auto mt-10 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
                                 <div class="text-center mb-12">
@@ -263,7 +257,7 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                                     <button onClick={()=>{setView('multi'); setText(''); setResults(null);}} class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-right group">
                                         <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">✍️</div>
                                         <h3 class="text-xl font-bold text-slate-800 mb-2">תרגול כתוב</h3>
-                                        <p class="text-sm text-slate-500">בדיקה מקיפה במקביל מול 3 מודלי AI (Gemini, Claude, GPT).</p>
+                                        <p class="text-sm text-slate-500">בדיקה מקיפה במקביל מול מודלי AI (Gemini, Claude, GPT).</p>
                                     </button>
                                     <button onClick={()=>{setView('martin'); setChatInput('');}} class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-right group">
                                         <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🗣️</div>
@@ -279,10 +273,8 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                             </div>
                         )}
 
-                        {/* --- MULTI-AI / TIMED VIEW --- */}
                         {(view === 'multi' || view === 'timed') && (
                             <div class="flex flex-col md:flex-row gap-8 h-[calc(100vh-120px)]">
-                                {/* Left Side - Workspace */}
                                 <div class="w-full md:w-1/2 flex flex-col space-y-4">
                                     {view === 'timed' && (
                                         <div class="bg-slate-800 text-white p-6 rounded-3xl flex justify-between items-center shadow-lg">
@@ -314,13 +306,12 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                                                 🎤
                                             </button>
                                             <button onClick={handleAnalyze} disabled={loading} class={`flex-1 rounded-2xl font-bold text-white transition-all shadow-md ${loading ? 'bg-slate-400' : 'bg-orange-800 hover:bg-orange-900 active:scale-95'}`}>
-                                                {loading ? <span class="flex items-center justify-center gap-2"><span class="loader"></span> בוחן תשובה...</span> : 'שלח לניתוח משולש'}
+                                                {loading ? <span class="flex items-center justify-center gap-2"><span class="loader border-slate-200 border-top-white"></span> בוחן...</span> : 'שלח לניתוח משולש'}
                                             </button>
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Right Side - Results (Desktop Split) */}
                                 <div class="w-full md:w-1/2 overflow-y-auto custom-scrollbar pr-2 pb-10">
                                     {!results && !loading && (
                                         <div class="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
@@ -330,14 +321,12 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                                     )}
                                     {results && (
                                         <div class="space-y-6 animate-in slide-in-from-right duration-500">
-                                            {/* Mobile Tabs */}
                                             <div class="md:hidden flex p-1 bg-slate-200 rounded-xl gap-1 mb-4">
                                                 {['gemini', 'claude', 'gpt'].map(m => (
                                                     <button key={m} onClick={()=>setActiveTab(m)} class={`flex-1 py-2 text-xs font-bold rounded-lg uppercase ${activeTab===m ? 'bg-white shadow text-orange-800' : 'text-slate-500'}`}>{m}</button>
                                                 ))}
                                             </div>
                                             
-                                            {/* Desktop List / Mobile Selected */}
                                             <div class="space-y-6">
                                                 <div class={activeTab==='gemini' ? 'block' : 'hidden md:block'}>{renderResultCard(results.gemini, 'Gemini 1.5')}</div>
                                                 <div class={activeTab==='claude' ? 'block' : 'hidden md:block'}>{renderResultCard(results.claude, 'Claude 3')}</div>
@@ -349,7 +338,6 @@ ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
                             </div>
                         )}
 
-                        {/* --- MARTIN LIVE VIEW --- */}
                         {view === 'martin' && (
                             <div class="max-w-2xl mx-auto h-[calc(100vh-140px)] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                                 <div class="p-4 border-b bg-orange-50 flex items-center gap-4">
