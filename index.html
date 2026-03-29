@@ -8,6 +8,8 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body{font-family:'Heebo',sans-serif;background:#f8fafc;color:#0f172a}
@@ -24,36 +26,85 @@
 <div id="root"></div>
 <div class="wm">&copy; Nitai Malka</div>
 <script type="text/babel">
-var useState=React.useState,useEffect=React.useEffect,useRef=React.useRef,Fragment=React.Fragment;
+var useState=React.useState, useEffect=React.useEffect, useRef=React.useRef, Fragment=React.Fragment;
 
-var UNIS={
-    mor:{name:'מו"ר / מרק"ם',limit:750,desc:'סעיפים, 7-10 שורות'},
-    bgu:{name:'בן-גוריון',limit:1200,desc:'פסקה 850-1200 תווים'},
-    tzfat:{name:'צפת / בר-אילן',limit:850,desc:'850 תווים לסעיף'},
-    haifa:{name:'חיפה',limit:1200,desc:'פסקה 850-1200 תווים'}
+/* ========== CONFIG ========== */
+
+var UNIS = {
+    mor: {
+        name: 'מו"ר / מרק"ם',
+        limit: 750,
+        format: 'סעיפים נפרדים, 7-10 שורות כתב יד לסעיף',
+        desc: 'יום תחנות (8-12 תחנות, 10 דקות כל אחת) עם שחקנים ומראיינים. שאלון ביוגרפי בכתב. השנה עובר למחשב.',
+        traits: 'אמפתיה, תקשורת, עבודת צוות, יציבות רגשית, שיקול דעת אתי',
+        tip: 'הכינו 8-12 סיפורים מהחיים. מבנה: מצב \u2192 פעולה \u2192 תוצאה \u2192 לקח.'
+    },
+    bgu: {
+        name: 'בן-גוריון',
+        limit: 1200,
+        format: 'פסקה שלמה 850-1200 תווים לכל השאלה כולל הסעיפים',
+        desc: 'מרק"ם (יום תחנות) + שאלון ביוגרפי. דגש מוצהר על רפואה קהילתית ואוכלוסיות מוחלשות.',
+        traits: 'מחויבות חברתית, צניעות, עבודת צוות, זמינות נפשית, עניין בפריפריה',
+        tip: 'הראו עניין באוכלוסיות מגוונות ובעבודה קהילתית. כתבו בפסקה אחת רציפה.'
+    },
+    tzfat: {
+        name: 'צפת / בר-אילן',
+        limit: 850,
+        format: '850 תווים לכל סעיף בנפרד (שאלון ממוחשב)',
+        desc: 'מבחן אישיות ממוחשב (מכון פילת) + ראיון אישי + שאלון ביוגרפי. 21 שאלות, כולל שאלות וידאו.',
+        traits: 'מוחצנות, נועם הליכות, מצפוניות, יציבות רגשית, פתיחות מחשבתית',
+        tip: 'דגש על פריפריה ורפואה בצפון. פרופיל מאוזן, לא מושלם. עקביות בין שאלון לראיון.'
+    },
+    haifa: {
+        name: 'חיפה',
+        limit: 1200,
+        format: 'פסקה שלמה 850-1200 תווים',
+        desc: 'מבחני אישיות + ראיונות. ועדות קבלה בוחנות מוטיבציה, אישיות וכישורים בין-אישיים.',
+        traits: 'תקשורת, אחריות, התאמה לעבודה קלינית, מוטיבציה אותנטית',
+        tip: 'הכירו את מערכת הבריאות בישראל. הראו שנכנסים בעיניים פקוחות.'
+    },
+    ariel: {
+        name: 'אריאל',
+        limit: 850,
+        format: 'מס"ר + שאו"ל + שאלון ביוגרפי',
+        desc: 'אחוז משמעותי מהסכם הוא אישיותי. מחפשים בשלות והתאמה ללימודים מתקדמים.',
+        traits: 'אחריות, בשלות, כישורי תקשורת, עבודה בצוות',
+        tip: 'התמקדו בניסיון חיים ובבגרות אישית.'
+    }
 };
 
-var RUBRIC="You are an extremely strict examiner for Israeli medical school admissions. Be direct, do NOT flatter.\n\nScoring Rubric (0-100):\nPart A Technical (20): Space limit(5), Chronological relevance post-highschool(5), Complete answer(5), Unique story(5).\nPart B Narrative (30): STAR model with active verbs(10), Internal rationale(10), Clarity(10).\nPart C Personality HEXACO (50): Honesty-Humility full responsibility no buts(15), Deep personal reflection not generic(15), Empathy for others(10), Real resilience under pressure(10).\n\nRed flags = 0: fabrication, blaming others, insensitivity, paternalism.\nBonuses: interpersonal difficulty, moral complexity, both sides shown.\nFor doctor simulations: communication, empathy, boundaries, patient autonomy.\nFor ethical dilemmas: complexity, conflicting values, reasoning process.\nFor video: structure, brevity 60-90sec, authenticity.\n\nALL text MUST be in Hebrew.\nRespond ONLY valid JSON no markdown:\n{\"total_score\":0,\"grade_label\":\"\",\"one_line\":\"\",\"sections\":{\"technical\":{\"score\":0,\"max\":20,\"notes\":\"\"},\"narrative\":{\"score\":0,\"max\":30,\"notes\":\"\"},\"personality\":{\"score\":0,\"max\":50,\"notes\":\"\"}},\"red_flags\":[],\"strengths\":[],\"improvements\":[],\"rewrite_suggestion\":\"\",\"personality_profile\":{\"honesty_humility\":{\"score\":0,\"max\":15,\"note\":\"\"},\"reflection\":{\"score\":0,\"max\":15,\"note\":\"\"},\"empathy\":{\"score\":0,\"max\":10,\"note\":\"\"},\"resilience\":{\"score\":0,\"max\":10,\"note\":\"\"}}}";
+var RUBRIC = "You are an extremely strict examiner for Israeli medical school admissions (MOR, MARKAM, MSR, biographical questionnaire). Be direct and honest. Do NOT flatter. If the answer is weak, say so clearly.\n\nScoring Rubric (0-100):\n\nPart A: Technical Framework (20 points)\n1. Character/space limit adherence (5) - concise and focused\n2. Chronological relevance (5) - event AFTER high school (army, work, university, volunteering)\n3. Complete answer to all sub-questions (5) - each part answered\n4. Uniqueness of story (5) - specific, not generic\n\nPart B: Narrative Structure (30 points)\n1. STAR Model (10) - clear Situation, active Action (I initiated, I led, NOT it happened), Result\n2. Rationale explanation (10) - WHY did you act this way? Internal decision-making process\n3. Clarity and eloquence (10) - flowing, appropriate language\n\nPart C: Personality Profile - HEXACO (50 points)\n1. Honesty and Humility (15) - admitting mistakes, FULL responsibility without but, no self-glorification\n2. Reflection and Insight (15) - deep post-analysis, personal internal lesson (NOT generic like I learned listening is important)\n3. Empathy and Agreeableness (10) - acknowledging others feelings, understanding their perspective\n4. Resilience and Conscientiousness (10) - real difficulty (not cosmetic), persistence under pressure\n\nRed Flags (automatic 0 in that parameter):\n- Fabricated or exaggerated story\n- Blaming the victim or others (he is too sensitive, my commander was terrible)\n- Insensitivity toward someone in distress\n- Inconsistency between stated values and described behavior\n- Paternalism in medical scenarios\n\nBonuses:\n- Role questions: interpersonal/managerial difficulty (not just technical)\n- Conflict questions: presenting complexity (not black/white)\n- Ethical dilemmas: presenting both sides before deciding\n\nFor doctor simulations: communication, empathy, patient autonomy, professional boundaries\nFor ethical dilemmas: complexity, conflicting values, reasoning process\nFor video questions: structure (open-body-close), brevity (60-90sec), authenticity\n\nALL evaluation text MUST be in Hebrew.\nRespond ONLY with valid JSON (no markdown, no backticks):\n{\"total_score\":0,\"grade_label\":\"\",\"one_line\":\"\",\"sections\":{\"technical\":{\"score\":0,\"max\":20,\"notes\":\"\"},\"narrative\":{\"score\":0,\"max\":30,\"notes\":\"\"},\"personality\":{\"score\":0,\"max\":50,\"notes\":\"\"}},\"red_flags\":[],\"strengths\":[],\"improvements\":[],\"rewrite_suggestion\":\"\",\"personality_profile\":{\"honesty_humility\":{\"score\":0,\"max\":15,\"note\":\"\"},\"reflection\":{\"score\":0,\"max\":15,\"note\":\"\"},\"empathy\":{\"score\":0,\"max\":10,\"note\":\"\"},\"resilience\":{\"score\":0,\"max\":10,\"note\":\"\"}}}";
 
-var MSYS="You are Martin, a tough interviewer for Israeli medical school admissions.\nRules: challenge the candidate, probe deeper, never accept surface answers.\nIf generic demand SPECIFIC example. If blaming others call it out. If no reasoning ask why.\nNever give scores. Natural Hebrew, 2-3 sentences max.\nChange topics after 3-4 exchanges. Occasionally throw ethical dilemmas.";
+var MARTIN_SYS = "You are Martin, a tough and experienced interviewer for Israeli medical school admissions. Your job is to challenge candidates and probe deeper. Rules:\n- Ask pointed follow-up questions that expose shallow thinking\n- If the answer is generic, demand a SPECIFIC real example from their life\n- If they blame others, call it out firmly but respectfully\n- If they dont explain their reasoning, ask: why did you choose to act this way?\n- Never give scores or praise - only probe deeper\n- Speak natural Hebrew, 2-3 sentences maximum per response\n- Change topics after 3-4 exchanges on the same subject\n- Occasionally throw unexpected ethical dilemmas\n- If they give a perfect answer, find the weak spot and push on it";
 
-var QS=[
-    {c:'bio',q:'ספר על מקרה שבו פגעת במישהו. איך הבנת? מה עשית? מה למדת?'},
-    {c:'bio',q:'תאר תקשורת לא טובה עם אדם אחר. מה הקושי? איך פתרת?'},
-    {c:'bio',q:'תאר משימה שנכשלת בה. מה הרגשת? איך התמודדת?'},
-    {c:'bio',q:'ספר על ביקורת שקיבלת. איך הגבת? איך השפיעה?'},
-    {c:'bio',q:'היכן התנדבת? מה פחות אהבת? איך התמודדת?'},
-    {c:'bio',q:'מה מושך אותך ברפואה? דוגמאות מהחיים.'},
-    {c:'vid',q:'תאר תקופה של רגשות שליליים. מה עבר עליך ואיך התמודדת?'},
-    {c:'vid',q:'מישהו הגיב בחוסר פרופורציה. מה עשית?'},
-    {c:'sit',q:'אתה רופא. מטופל כועס חיכה 3 שעות. מה תעשה?'},
-    {c:'sit',q:'רופא בכיר טעה במינון. אומר לא להתערב. מה עכשיו?'},
-    {c:'sit',q:'משפחה מבקשת שלא תספר למטופל בן 70 צלול על מצבו. הוא שואל. מה תעשה?'},
-    {c:'dil',q:'מכשיר הנשמה אחד, שני חולים: צעיר 25 ומבוגר 78. איך תחליט?'},
-    {c:'dil',q:'מטופל בן 17 משתמש בסמים, מבקש סודיות. ההורים שואלים. מה תעשה?'},
-    {c:'dil',q:'מטופלת מבקשת הליך מותר בחוק שסותר את ערכיך. מה תעשה?'}
+var DEFAULT_QS = [
+    {c:'bio', t:'אירועי עבר', q:'ספר על מקרה שבו פגעת במישהו. איך הבנת שפגעת? איך הרגשת ואיך פעלת? מה למדת ומה היית עושה אחרת?'},
+    {c:'bio', t:'אירועי עבר', q:'תאר מצב של תקשורת לא טובה מול אדם אחר. מה הקושי? איך ראית את הסיטואציה? איך הרגשת ואיך פתרת? מה למדת?'},
+    {c:'bio', t:'אירועי עבר', q:'תאר משימה חשובה שנכשלת בה למרות שציפית להצליח. מה הרגשת? איך התמודדת? מה למדת?'},
+    {c:'bio', t:'אירועי עבר', q:'ספר על מקרה שבו קיבלת ביקורת. מה הסיטואציה? איך הגבת? איך הביקורת השפיעה עליך?'},
+    {c:'bio', t:'רקע', q:'היכן התנדבת ולמה בחרת בהתנדבות הזו? מה פחות אהבת ולמה? איך התמודדת עם הקושי?'},
+    {c:'bio', t:'מוטיבציה', q:'מה מושך אותך ברפואה? תן דוגמאות קונקרטיות מחייך. (לא סיסמאות!)'},
+    {c:'bio', t:'אירועי עבר', q:'תאר מקרה שבו השפלת מישהו. איך הרגשת ומה עשית? מה למדת?'},
+    {c:'vid', t:'שחזור צפת 2026', q:'תאר תקופה שחווית בה רגשות שליליים. מה עבר עליך, איך התמודדת, ומה למדת על עצמך?'},
+    {c:'vid', t:'שחזור צפת 2026', q:'תאר מקרה שמישהו הגיב בחוסר פרופורציה וחשבת שאחרת היה הנכון. מה עשית ומה למדת?'},
+    {c:'vid', t:'שחזור צפת 2026', q:'מה מושך אותך ברפואה? דבר כאילו למצלמה, 1-2 דקות.'},
+    {c:'sit', t:'משחק תפקידים', q:'אתה רופא מתמחה. מטופל בן 55 מגיע לבד. עליך לעדכן אותו שיש ממצא חשוד. הוא מתחיל לבכות. מה תעשה?'},
+    {c:'sit', t:'משחק תפקידים', q:'אתה רופא. מטופל כועס מגיע לאחר 3 שעות המתנה. צועק: אף אחד לא מתייחס אליי! מה תעשה?'},
+    {c:'sit', t:'משחק תפקידים', q:'אחות בכירה לא מבצעת הוראה שנתת. היא אומרת: אני כבר 20 שנה פה. איך תגיב?'},
+    {c:'sit', t:'משחק תפקידים', q:'מטופל בן 70 עם סוכרת מסרב לאינסולין. אומר: אני לא צריך כימיקלים. מה תעשה?'},
+    {c:'sit', t:'משחק תפקידים', q:'בן משפחה מבקש שלא תספר למטופל בן 70 (צלול) על מצבו. המטופל שואל ישירות. מה תעשה?'},
+    {c:'dil', t:'שיקול דעת', q:'משפחה של מטופל סופני מבקשת שלא תספר לו. הם אומרים: זה יהרוג אותו. מה הערכים המתנגשים? מה תעשה?'},
+    {c:'dil', t:'שיקול דעת', q:'מכשיר הנשמה אחד אחרון. שני מטופלים: ילד בן 8 ואישה בת 45 אם חד-הורית ל-3. איך תחליט?'},
+    {c:'dil', t:'שיקול דעת', q:'מטופל בן 17 משתמש בסמים, מבקש שלא תספר להורים. ההורים שואלים. מה תעשה?'},
+    {c:'dil', t:'שיקול דעת', q:'אתה רואה רופא בכיר טועה במינון תרופה. הוא אומר: אני יודע מה אני עושה. מה עכשיו?'},
+    {c:'dil', t:'שיקול דעת', q:'מטופלת מבקשת הליך מותר בחוק שסותר את ערכיך האישיים. מה תעשה?'}
 ];
-var CN={bio:'ביוגרפי',vid:'וידאו',sit:'סיטואציה',dil:'דילמה'};
+
+var CN = {bio:'ביוגרפי', vid:'וידאו', sit:'סיטואציה', dil:'דילמה אתית'};
+var CC = {bio:'#c2410c', vid:'#7c3aed', sit:'#0891b2', dil:'#b45309'};
+var CBG = {bio:'#fff7ed', vid:'#f5f3ff', sit:'#ecfeff', dil:'#fffbeb'};
+
+/* ========== HELPERS ========== */
 
 function pj(t){try{return JSON.parse(t.replace(/```json|```/g,'').trim())}catch(e){return null}}
 function fmt(s){var m=Math.floor(s/60),c=s%60;return(m<10?'0':'')+m+':'+(c<10?'0':'')+c}
@@ -61,43 +112,83 @@ function sC(s){return s>=80?'#16a34a':s>=60?'#ca8a04':'#dc2626'}
 
 function Bar(p){
     var pct=Math.round((p.score/p.max)*100),c=sC(pct);
-    return React.createElement('div',{style:{marginBottom:10}},[
-        React.createElement('div',{key:'h',style:{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}},[
-            React.createElement('span',{key:'l'},p.label),
-            React.createElement('span',{key:'s',style:{color:c}},p.score+'/'+p.max)
-        ]),
-        React.createElement('div',{key:'bg',style:{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}},
-            React.createElement('div',{style:{height:'100%',width:pct+'%',background:c,borderRadius:3,transition:'width .6s'}})
-        ),
-        p.note?React.createElement('div',{key:'n',style:{fontSize:11,color:'#64748b',marginTop:3,lineHeight:1.5}},p.note):null
-    ]);
+    return(<div style={{marginBottom:10}}>
+        <div style={{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}}><span>{p.label}</span><span style={{color:c}}>{p.score}/{p.max}</span></div>
+        <div style={{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}}><div style={{height:'100%',width:pct+'%',background:c,borderRadius:3,transition:'width .6s'}}/></div>
+        {p.note&&<div style={{fontSize:11,color:'#64748b',marginTop:3,lineHeight:1.5}}>{p.note}</div>}
+    </div>);
 }
 
+/* ========== APP ========== */
+
 function App(){
-    var s=useState,u=useEffect,r=useRef;
-    var _v=s('home'),view=_v[0],setView=_v[1];
-    var _k=s(null),keys=_k[0],setKeys=_k[1];
-    var _ke=s(null),kErr=_ke[0],setKErr=_ke[1];
-    var _u=s('tzfat'),uni=_u[0],setUni=_u[1];
-    var _tx=s(''),text=_tx[0],setText=_tx[1];
-    var _ld=s(false),loading=_ld[0],setLoading=_ld[1];
-    var _rs=s(null),results=_rs[0],setResults=_rs[1];
-    var _tb=s('gemini'),tab=_tb[0],setTab=_tb[1];
-    var _qi=s(null),qIdx=_qi[0],setQIdx=_qi[1];
-    var _ch=s([]),chat=_ch[0],setChat=_ch[1];
-    var _ci=s(''),ci=_ci[0],setCi=_ci[1];
-    var _ml=s(false),mLd=_ml[0],setMLd=_ml[1];
-    var _ti=s(0),timer=_ti[0],setTimer=_ti[1];
-    var _to=s(false),tOn=_to[0],setTOn=_to[1];
-    var _tm=s('up'),tMode=_tm[0],setTMode=_tm[1];
-    var _rc=s(false),isRec=_rc[0],setIsRec=_rc[1];
-    var _ro=s(null),recO=_ro[0],setRecO=_ro[1];
-    var ceRef=r(null);
+    var _v=useState('home'),view=_v[0],setView=_v[1];
+    var _k=useState(null),keys=_k[0],setKeys=_k[1];
+    var _ke=useState(null),kErr=_ke[0],setKErr=_ke[1];
+    var _db=useState(null),db=_db[0],setDb=_db[1];
+    var _u=useState('tzfat'),uni=_u[0],setUni=_u[1];
 
-    u(function(){fetch('/api/keys').then(function(r){if(!r.ok)throw new Error('err');return r.json()}).then(function(d){setKeys(d)}).catch(function(e){setKErr(e.message)})},[]);
-    u(function(){if(!tOn)return;var iv=setInterval(function(){setTimer(function(t){if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1})},1000);return function(){clearInterval(iv)}},[tOn,tMode]);
-    u(function(){if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
+    // Write mode
+    var _tx=useState(''),text=_tx[0],setText=_tx[1];
+    var _ld=useState(false),loading=_ld[0],setLoading=_ld[1];
+    var _rs=useState(null),results=_rs[0],setResults=_rs[1];
+    var _tb=useState('gemini'),tab=_tb[0],setTab=_tb[1];
+    var _qi=useState(null),qIdx=_qi[0],setQIdx=_qi[1];
 
+    // Martin
+    var _ch=useState([]),chat=_ch[0],setChat=_ch[1];
+    var _ci=useState(''),ci=_ci[0],setCi=_ci[1];
+    var _ml=useState(false),mLd=_ml[0],setMLd=_ml[1];
+    var ceRef=useRef(null);
+
+    // Timer
+    var _ti=useState(0),timer=_ti[0],setTimer=_ti[1];
+    var _to=useState(false),tOn=_to[0],setTOn=_to[1];
+    var _tm=useState('up'),tMode=_tm[0],setTMode=_tm[1];
+
+    // Recording
+    var _rc=useState(false),isRec=_rc[0],setIsRec=_rc[1];
+    var _ro=useState(null),recO=_ro[0],setRecO=_ro[1];
+
+    // Custom questions
+    var _cqs=useState([]),customQs=_cqs[0],setCQs=_cqs[1];
+    var _aq=useState(false),showAddQ=_aq[0],setShowAddQ=_aq[1];
+    var _nq=useState({c:'bio',t:'',q:''}),nq=_nq[0],setNq=_nq[1];
+
+    // History
+    var _hist=useState([]),hist=_hist[0],setHist=_hist[1];
+
+    var allQs = DEFAULT_QS.concat(customQs);
+
+    /* ---- Init: Keys + Firebase ---- */
+    useEffect(function(){
+        fetch('/api/keys').then(function(r){if(!r.ok)throw new Error('err');return r.json()}).then(function(d){
+            setKeys(d);
+            if(d.FIREBASE){
+                try{
+                    if(!firebase.apps.length) firebase.initializeApp({apiKey:d.FIREBASE, projectId:'med-test-nitai'});
+                    var firedb = firebase.firestore();
+                    setDb(firedb);
+                    // Load custom questions
+                    firedb.collection('customQuestions').orderBy('created','desc').get().then(function(snap){
+                        var qs=[];snap.forEach(function(doc){qs.push(Object.assign({id:doc.id},doc.data()))});setCQs(qs);
+                    });
+                    // Load history
+                    firedb.collection('evaluations').orderBy('timestamp','desc').limit(20).get().then(function(snap){
+                        var h=[];snap.forEach(function(doc){h.push(Object.assign({id:doc.id},doc.data()))});setHist(h);
+                    });
+                }catch(e){console.warn('Firebase error:',e)}
+            }
+        }).catch(function(e){setKErr(e.message)});
+    },[]);
+
+    /* ---- Timer ---- */
+    useEffect(function(){if(!tOn)return;var iv=setInterval(function(){setTimer(function(t){if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1})},1000);return function(){clearInterval(iv)}},[tOn,tMode]);
+
+    /* ---- Chat scroll ---- */
+    useEffect(function(){if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
+
+    /* ---- Recording ---- */
     function togRec(target){
         if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}
         var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -108,46 +199,74 @@ function App(){
         rc.start();setIsRec(true);setRecO(rc);
     }
 
-    function pickQ(){setQIdx(Math.floor(Math.random()*QS.length))}
+    function pickQ(){setQIdx(Math.floor(Math.random()*allQs.length))}
 
+    /* ---- Add custom question ---- */
+    function addCustomQ(){
+        if(!nq.q.trim())return;
+        var newQ = {c:nq.c, t:nq.t||'שאלה מותאמת', q:nq.q.trim(), custom:true};
+        setCQs(function(p){return p.concat([newQ])});
+        if(db){db.collection('customQuestions').add(Object.assign({},newQ,{created:firebase.firestore.FieldValue.serverTimestamp()}))}
+        setNq({c:'bio',t:'',q:''});setShowAddQ(false);
+    }
+
+    /* ---- Delete custom question ---- */
+    function delCustomQ(idx){
+        var q = customQs[idx];
+        setCQs(function(p){return p.filter(function(_,i){return i!==idx})});
+        if(db && q.id){db.collection('customQuestions').doc(q.id).delete()}
+    }
+
+    /* ---- Analyze ---- */
     async function analyze(){
         if(text.length<20){alert('כתוב תשובה מלאה.');return}
         setLoading(true);setResults(null);
+        var uI=UNIS[uni];
+
+        // Save to Firebase
+        if(db){
+            try{await db.collection('evaluations').add({content:text,uni:uni,question:qIdx!==null?allQs[qIdx].q:'',timestamp:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}
+        }
+
         try{
-            var prompt='Institution: '+UNIS[uni].name+'\nLimit: '+UNIS[uni].limit+'\nActual: '+text.length+'\n\nAnswer:\n'+text;
+            var prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nChar limit: '+uI.limit+'\nActual chars: '+text.length+'\nTraits evaluated: '+uI.traits+'\n\nCandidate answer:\n'+text;
             var promises=[];
+
             if(keys.GEMINI){promises.push(fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key='+keys.GEMINI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:RUBRIC}]},contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3}})}).then(function(r){return r.json()}).then(function(d){return{sys:'gemini',data:d}}).catch(function(){return{sys:'gemini',data:null}}))}
+
             if(keys.CLAUDE){promises.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,system:RUBRIC})}).then(function(r){return r.json()}).then(function(d){return{sys:'claude',data:d}}).catch(function(){return{sys:'claude',data:null}}))}
+
             if(keys.GPT){promises.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:0.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(function(r){return r.json()}).then(function(d){return{sys:'gpt',data:d}}).catch(function(){return{sys:'gpt',data:null}}))}
+
             var raw=await Promise.allSettled(promises);
             var parsed={gemini:null,claude:null,gpt:null};
             raw.forEach(function(r){if(r.status!=='fulfilled'||!r.value.data)return;var v=r.value;try{if(v.sys==='gemini')parsed.gemini=pj(v.data.candidates[0].content.parts[0].text);if(v.sys==='claude'){var t=v.data.content?v.data.content[0].text:(v.data.text||'');parsed.claude=pj(t)}if(v.sys==='gpt')parsed.gpt=pj(v.data.choices[0].message.content)}catch(e){}});
-            setResults(parsed);if(parsed.gemini)setTab('gemini');else if(parsed.claude)setTab('claude');else if(parsed.gpt)setTab('gpt');
+            setResults(parsed);
+            if(parsed.gemini)setTab('gemini');else if(parsed.claude)setTab('claude');else if(parsed.gpt)setTab('gpt');
+
+            // Save results to Firebase
+            if(db){try{await db.collection('results').add({uni:uni,scores:{gemini:parsed.gemini?.total_score||null,claude:parsed.claude?.total_score||null,gpt:parsed.gpt?.total_score||null},timestamp:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}}
         }catch(e){alert('שגיאה: '+e.message)}finally{setLoading(false)}
     }
 
+    /* ---- Martin ---- */
     async function martinSend(){
         if(!ci.trim()||!keys.GEMINI)return;
         var nc=chat.concat([{role:'user',text:ci}]);setChat(nc);setCi('');setMLd(true);
         try{
             var hist=nc.map(function(m){return m.role==='user'?'Candidate: '+m.text:'Martin: '+m.text}).join('\n');
-            var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key='+keys.GEMINI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:MSYS+'\nInstitution: '+UNIS[uni].name}]},contents:[{parts:[{text:'Conversation:\n'+hist+'\n\nRespond as Martin (2-3 sentences Hebrew):'}]}],generationConfig:{temperature:0.7,maxOutputTokens:200}})});
+            var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key='+keys.GEMINI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:MARTIN_SYS+'\nInstitution: '+UNIS[uni].name+'\nTraits to evaluate: '+UNIS[uni].traits}]},contents:[{parts:[{text:'Conversation so far:\n'+hist+'\n\nRespond as Martin (2-3 sentences, natural Hebrew):'}]}],generationConfig:{temperature:0.7,maxOutputTokens:250}})});
             var data=await res.json();var reply=data.candidates[0].content.parts[0].text;
             setChat(nc.concat([{role:'martin',text:reply}]));
             if('speechSynthesis' in window){window.speechSynthesis.cancel();var ut=new SpeechSynthesisUtterance(reply);ut.lang='he-IL';ut.rate=1.05;window.speechSynthesis.speak(ut)}
         }catch(e){setChat(nc.concat([{role:'martin',text:'שגיאת תקשורת. נסה שוב.'}]))}finally{setMLd(false)}
     }
 
-    function startMartin(){var q=QS[Math.floor(Math.random()*QS.length)];setChat([{role:'martin',text:'שלום. אני מרטין, מראיין במיוני רפואה. נתחיל:\n\n'+q.q}]);setCi('');setView('martin')}
+    function startMartin(){var q=allQs[Math.floor(Math.random()*allQs.length)];setChat([{role:'martin',text:'שלום. אני מרטין, ואני אראיין אותך היום למיוני רפואה ל'+UNIS[uni].name+'.\n\nבוא נתחיל:\n'+q.q}]);setCi('');setView('martin')}
 
-    if(kErr)return <div class="flex items-center justify-center min-h-screen"><div class="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-md text-center"><div class="text-3xl mb-3">&#9888;</div><div class="font-bold text-red-700 mb-2">שגיאה בטעינת מפתחות</div><div class="text-sm text-red-500">וודא שקובץ /api/keys קיים ומוגדרים Environment Variables ב-Vercel</div></div></div>;
-    if(!keys)return <div class="flex flex-col items-center justify-center min-h-screen gap-3"><span class="ld" style={{width:32,height:32}}></span><div class="text-slate-400 font-bold text-sm">מתחבר לכספת...</div></div>;
-
-    var uI=UNIS[uni];
-
-    // Result Card Component
+    /* ---- Result Card ---- */
     function RC({data,name}){
-        if(!data)return <div class="p-8 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center"><p class="text-slate-400 font-bold">{name}</p><p class="text-xs text-slate-300 mt-1">לא זמין</p></div>;
+        if(!data)return <div class="p-8 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center"><p class="text-slate-400 font-bold">{name}</p><p class="text-xs text-slate-300 mt-1">לא זמין (חסר מפתח API)</p></div>;
         var sc=data.total_score,c=sC(sc);
         return(<div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm fi" style={{borderTopColor:c,borderTopWidth:3}}>
             <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
@@ -160,78 +279,178 @@ function App(){
             <Bar label="פרופיל HEXACO" score={data.sections?.personality?.score||0} max={50} note={data.sections?.personality?.notes}/>
             {data.personality_profile&&<div class="mt-4 pt-3 border-t border-slate-100"><div class="text-xs font-bold text-slate-500 mb-2">פירוט HEXACO</div>
                 <Bar label="כנות וענווה" score={data.personality_profile.honesty_humility?.score||0} max={15} note={data.personality_profile.honesty_humility?.note}/>
-                <Bar label="רפלקציה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/>
+                <Bar label="רפלקציה ותובנה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/>
                 <Bar label="אמפתיה" score={data.personality_profile.empathy?.score||0} max={10} note={data.personality_profile.empathy?.note}/>
-                <Bar label="חוסן" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/>
+                <Bar label="חוסן ומצפוניות" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/>
             </div>}
-            {data.red_flags&&data.red_flags.length>0&&<div class="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div class="text-xs font-bold text-red-700 mb-1">דגלים אדומים</div>{data.red_flags.map(function(f,i){return <div key={i} class="text-xs text-red-600">- {f}</div>})}</div>}
-            {data.strengths&&data.strengths.length>0&&<div class="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div class="text-xs font-bold text-green-700 mb-1">חוזקות</div>{data.strengths.map(function(s,i){return <div key={i} class="text-xs text-green-600">- {s}</div>})}</div>}
-            {data.improvements&&data.improvements.length>0&&<div class="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div class="text-xs font-bold text-blue-700 mb-1">מה לשפר</div>{data.improvements.map(function(m,i){return <div key={i} class="text-xs text-blue-600">{(i+1)+'. '+m}</div>})}</div>}
-            {data.rewrite_suggestion&&<div class="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div class="text-xs font-bold text-orange-800 mb-1">הצעת ניסוח</div><p class="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}
+            {data.red_flags&&data.red_flags.length>0&&<div class="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div class="text-xs font-bold text-red-700 mb-1">🚩 דגלים אדומים</div>{data.red_flags.map(function(f,i){return <div key={i} class="text-xs text-red-600 mt-1">- {f}</div>})}</div>}
+            {data.strengths&&data.strengths.length>0&&<div class="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div class="text-xs font-bold text-green-700 mb-1">&#10003; חוזקות</div>{data.strengths.map(function(s,i){return <div key={i} class="text-xs text-green-600 mt-1">- {s}</div>})}</div>}
+            {data.improvements&&data.improvements.length>0&&<div class="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div class="text-xs font-bold text-blue-700 mb-1">&#128204; מה לשפר</div>{data.improvements.map(function(m,i){return <div key={i} class="text-xs text-blue-600 mt-1">{(i+1)+'. '+m}</div>})}</div>}
+            {data.rewrite_suggestion&&<div class="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div class="text-xs font-bold text-orange-800 mb-1">&#9997; הצעת ניסוח מחדש</div><p class="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}
         </div>);
     }
 
+    /* ========== RENDER ========== */
+
+    if(kErr)return <div class="flex items-center justify-center min-h-screen"><div class="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-md text-center"><div class="text-3xl mb-3">&#9888;</div><div class="font-bold text-red-700 mb-2">שגיאה בטעינת מפתחות</div><div class="text-sm text-red-500">וודא שקובץ /api/keys קיים ושמוגדרים Environment Variables ב-Vercel</div></div></div>;
+    if(!keys)return <div class="flex flex-col items-center justify-center min-h-screen gap-3"><span class="ld" style={{width:32,height:32}}></span><div class="text-slate-400 font-bold text-sm">מתחבר לכספת...</div></div>;
+
+    var uI=UNIS[uni];
+
     return(<div class="min-h-screen flex flex-col">
+
+        {/* HEADER */}
         <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex justify-between items-center">
             <div class="flex items-center gap-3 cursor-pointer" onClick={function(){setView('home');setTOn(false)}}>
                 <div class="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black text-base">M</div>
                 <h1 class="text-lg font-black text-slate-800">Med-Test <span class="text-orange-700">Pro</span></h1>
             </div>
-            {view!=='home'&&<select value={uni} onChange={function(e){setUni(e.target.value)}} class="bg-slate-100 border border-slate-200 text-xs font-bold py-2 px-3 rounded-full cursor-pointer">{Object.entries(UNIS).map(function(e){return <option key={e[0]} value={e[0]}>{e[1].name}</option>})}</select>}
+            <div class="flex items-center gap-2">
+                {view!=='home'&&<select value={uni} onChange={function(e){setUni(e.target.value)}} class="bg-slate-100 border border-slate-200 text-xs font-bold py-2 px-3 rounded-full cursor-pointer">{Object.entries(UNIS).map(function(e){return <option key={e[0]} value={e[0]}>{e[1].name}</option>})}</select>}
+                {view!=='home'&&<button onClick={function(){setView('home');setTOn(false)}} class="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962; בית</button>}
+            </div>
         </header>
 
         <main class="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
 
-            {view==='home'&&<div class="max-w-3xl mx-auto mt-8 fi">
-                <div class="text-center mb-10"><h2 class="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p class="text-slate-500">בחר סגנון תרגול</p></div>
-                <div class="grid md:grid-cols-3 gap-5">
-                    <button onClick={function(){setView('multi');setText('');setResults(null);pickQ()}} class="bg-white p-8 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
-                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">&#9997;&#65039;</div>
-                        <h3 class="text-lg font-bold text-slate-800 mb-2">תרגול כתוב</h3>
-                        <p class="text-xs text-slate-500">Gemini 3.1 Pro + Claude Opus 4.6 + GPT-4o</p>
+            {/* ===== HOME ===== */}
+            {view==='home'&&<div class="max-w-4xl mx-auto mt-6 fi">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2>
+                    <p class="text-slate-500">Gemini 3.1 Pro &middot; Claude Opus 4.6 &middot; GPT-4o</p>
+                </div>
+
+                {/* Mode Selection */}
+                <div class="grid md:grid-cols-3 gap-5 mb-8">
+                    <button onClick={function(){setView('multi');setText('');setResults(null);pickQ()}} class="bg-white p-7 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
+                        <div class="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9997;&#65039;</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">תרגול כתוב</h3>
+                        <p class="text-xs text-slate-500">ניתוח משולש מול 3 מודלי AI עם מחוון HEXACO מלא</p>
                     </button>
-                    <button onClick={startMartin} class="bg-white p-8 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
-                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">&#128483;&#65039;</div>
-                        <h3 class="text-lg font-bold text-slate-800 mb-2">ראיון חי (מרטין)</h3>
-                        <p class="text-xs text-slate-500">מראיין AI שמתקיל ומדבר בחזרה</p>
+                    <button onClick={startMartin} class="bg-white p-7 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
+                        <div class="text-3xl mb-3 group-hover:scale-110 transition-transform">&#128483;&#65039;</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">ראיון חי (מרטין)</h3>
+                        <p class="text-xs text-slate-500">מראיין AI קשוח שמתקיל, מדבר בחזרה, ודורש עומק</p>
                     </button>
-                    <button onClick={function(){setView('timed');setText('');setTimer(0);setTOn(false);setResults(null);pickQ()}} class="bg-white p-8 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
-                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">&#9201;</div>
-                        <h3 class="text-lg font-bold text-slate-800 mb-2">מבחן על השעון</h3>
-                        <p class="text-xs text-slate-500">כתיבה + הקלטה תחת לחץ זמן</p>
+                    <button onClick={function(){setView('timed');setText('');setTimer(0);setTOn(false);setResults(null);pickQ()}} class="bg-white p-7 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
+                        <div class="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9201;</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-1">מבחן על השעון</h3>
+                        <p class="text-xs text-slate-500">כתיבה + הקלטה תחת לחץ זמן כמו במבחן אמיתי</p>
                     </button>
                 </div>
+
+                {/* University Info */}
+                <div class="mb-8">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">&#127979; מוסדות לימוד</h3>
+                    <div class="grid md:grid-cols-2 gap-4">
+                        {Object.entries(UNIS).map(function(e){var k=e[0],u=e[1];return(
+                            <div key={k} class={'bg-white p-5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer transition-all '+(uni===k?'border-orange-500 ring-2 ring-orange-100':'')} onClick={function(){setUni(k)}}>
+                                <div class="flex justify-between items-start mb-2">
+                                    <h4 class="font-bold text-slate-800">{u.name}</h4>
+                                    <span class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">{u.limit} תווים</span>
+                                </div>
+                                <p class="text-xs text-slate-600 mb-2 leading-relaxed">{u.desc}</p>
+                                <p class="text-xs text-slate-500"><span class="font-bold">פורמט:</span> {u.format}</p>
+                                <p class="text-xs text-slate-500 mt-1"><span class="font-bold">תכונות נבדקות:</span> {u.traits}</p>
+                                <p class="text-xs text-orange-700 mt-2 font-bold">&#128161; {u.tip}</p>
+                            </div>
+                        )})}
+                    </div>
+                </div>
+
+                {/* Question Bank */}
+                <div class="mb-8">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-bold text-slate-800">&#128218; בנק שאלות ({allQs.length})</h3>
+                        <button onClick={function(){setShowAddQ(!showAddQ)}} class="text-xs font-bold text-orange-700 bg-orange-50 px-4 py-2 rounded-full hover:bg-orange-100">{showAddQ?'ביטול':'+ הוסף שאלה'}</button>
+                    </div>
+
+                    {/* Add Question Form */}
+                    {showAddQ&&<div class="bg-white p-5 rounded-2xl border border-orange-200 mb-4 fi">
+                        <div class="flex gap-3 mb-3">
+                            <select value={nq.c} onChange={function(e){setNq(Object.assign({},nq,{c:e.target.value}))}} class="bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold">
+                                {Object.entries(CN).map(function(e){return <option key={e[0]} value={e[0]}>{e[1]}</option>})}
+                            </select>
+                            <input value={nq.t} onChange={function(e){setNq(Object.assign({},nq,{t:e.target.value}))}} placeholder="תגית (אופציונלי)" class="flex-1 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm"/>
+                        </div>
+                        <textarea value={nq.q} onChange={function(e){setNq(Object.assign({},nq,{q:e.target.value}))}} placeholder="כתוב את השאלה כאן..." class="w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2 text-sm min-h-[80px] resize-none mb-3"/>
+                        <button onClick={addCustomQ} disabled={!nq.q.trim()} class="bg-orange-800 text-white font-bold text-sm px-6 py-2 rounded-lg disabled:opacity-40">שמור שאלה</button>
+                    </div>}
+
+                    {/* Questions List */}
+                    <div class="space-y-2 max-h-[400px] overflow-y-auto sc">
+                        {allQs.map(function(q,i){return(
+                            <div key={i} class="bg-white p-4 rounded-xl border border-slate-200 flex items-start gap-3 hover:border-slate-300 transition-all">
+                                <span class="px-2 py-1 rounded-lg text-xs font-bold text-white shrink-0 mt-0.5" style={{background:CC[q.c]||'#c2410c'}}>{CN[q.c]}</span>
+                                <div class="flex-1">
+                                    {q.t&&<div class="text-xs text-slate-400 font-bold mb-1">{q.t}</div>}
+                                    <p class="text-sm text-slate-700 leading-relaxed">{q.q}</p>
+                                </div>
+                                <div class="flex gap-1 shrink-0">
+                                    <button onClick={function(){setQIdx(i);setView('multi');setText('');setResults(null)}} class="text-xs text-orange-600 font-bold hover:text-orange-800 bg-orange-50 px-2 py-1 rounded">תרגל</button>
+                                    {q.custom&&<button onClick={function(){delCustomQ(i-DEFAULT_QS.length)}} class="text-xs text-red-500 font-bold hover:text-red-700 bg-red-50 px-2 py-1 rounded">&#10005;</button>}
+                                </div>
+                            </div>
+                        )})}
+                    </div>
+                </div>
+
+                {/* History */}
+                {hist.length>0&&<div class="mb-8">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">&#128200; היסטוריה אחרונה</h3>
+                    <div class="space-y-2">
+                        {hist.slice(0,5).map(function(h,i){return(
+                            <div key={i} class="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center">
+                                <div><div class="text-sm font-bold text-slate-700">{UNIS[h.uni]?.name||h.uni}</div><div class="text-xs text-slate-400 mt-1">{h.content?.substring(0,60)+'...'}</div></div>
+                                <div class="text-xs text-slate-400">{h.timestamp?.toDate?.()?.toLocaleDateString('he-IL')||''}</div>
+                            </div>
+                        )})}
+                    </div>
+                </div>}
             </div>}
 
+            {/* ===== WRITE / TIMED ===== */}
             {(view==='multi'||view==='timed')&&<div class="flex flex-col lg:flex-row gap-6 fi" style={{minHeight:'calc(100vh - 140px)'}}>
                 <div class="w-full lg:w-1/2 flex flex-col gap-4">
+
+                    {/* Timer */}
                     {view==='timed'&&<div class="bg-slate-800 text-white p-5 rounded-2xl flex justify-between items-center shadow-lg">
                         <div><div class="text-xs text-slate-400 font-bold mb-1">{tMode==='down'?'זמן נותר':'זמן שעבר'}</div><div class={'text-3xl font-mono font-black '+(tMode==='down'&&timer<30?'text-red-400':'')}>{fmt(timer)}</div></div>
-                        <div class="flex gap-2 flex-wrap">
-                            {!tOn?<Fragment><button onClick={function(){setTMode('up');setTimer(0);setTOn(true)}} class="bg-orange-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-orange-500">ספירה</button><button onClick={function(){setTMode('down');setTimer(120);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">2 דק</button><button onClick={function(){setTMode('down');setTimer(300);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">5 דק</button><button onClick={function(){setTMode('down');setTimer(600);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">10 דק</button></Fragment>:<Fragment><button onClick={function(){setTOn(false)}} class="bg-yellow-600 px-4 py-2 rounded-xl text-sm font-bold">עצור</button><button onClick={function(){setTOn(false);setTimer(0)}} class="bg-red-600 px-4 py-2 rounded-xl text-sm font-bold">אפס</button></Fragment>}
-                        </div>
+                        <div class="flex gap-2 flex-wrap">{!tOn?<Fragment><button onClick={function(){setTMode('up');setTimer(0);setTOn(true)}} class="bg-orange-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-orange-500">ספירה</button><button onClick={function(){setTMode('down');setTimer(120);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">2 דק</button><button onClick={function(){setTMode('down');setTimer(300);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">5 דק</button><button onClick={function(){setTMode('down');setTimer(600);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">10 דק</button></Fragment>:<Fragment><button onClick={function(){setTOn(false)}} class="bg-yellow-600 px-4 py-2 rounded-xl text-sm font-bold">עצור</button><button onClick={function(){setTOn(false);setTimer(0)}} class="bg-red-600 px-4 py-2 rounded-xl text-sm font-bold">אפס</button></Fragment>}</div>
                     </div>}
-                    {qIdx!==null&&<div class="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-start gap-3">
-                        <span class="px-2 py-1 rounded-lg text-xs font-bold text-white bg-orange-600">{CN[QS[qIdx].c]}</span>
-                        <p class="text-sm text-orange-900 leading-relaxed flex-1">{QS[qIdx].q}</p>
-                        <button onClick={pickQ} class="text-xs text-orange-500 font-bold hover:text-orange-700 shrink-0">אחרת</button>
+
+                    {/* University Info Bar */}
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center text-xs">
+                        <span class="font-bold text-slate-600">{uI.name}</span>
+                        <span class="text-slate-400">{uI.format}</span>
+                    </div>
+
+                    {/* Question */}
+                    {qIdx!==null&&<div class="border rounded-2xl p-4 flex items-start gap-3" style={{background:CBG[allQs[qIdx].c]||'#fff7ed',borderColor:CC[allQs[qIdx].c]||'#c2410c'}}>
+                        <span class="px-2 py-1 rounded-lg text-xs font-bold text-white shrink-0" style={{background:CC[allQs[qIdx].c]||'#c2410c'}}>{CN[allQs[qIdx].c]}</span>
+                        <p class="text-sm leading-relaxed flex-1" style={{color:CC[allQs[qIdx].c]||'#c2410c'}}>{allQs[qIdx].q}</p>
+                        <button onClick={pickQ} class="text-xs font-bold shrink-0 opacity-60 hover:opacity-100">&#8635; אחרת</button>
                     </div>}
+
+                    {/* Textarea */}
                     <div class="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                         <div class="px-4 py-3 border-b bg-slate-50 flex justify-between items-center">
                             <span class="text-xs font-bold text-slate-400">כתיבה / תמלול</span>
                             <span class={'text-xs font-bold '+(text.length>uI.limit?'text-red-500':'text-slate-400')}>{text.length} / {uI.limit}{text.length>uI.limit&&' ⚠️'}</span>
                         </div>
-                        <textarea class="flex-1 w-full p-5 outline-none text-slate-700 text-base leading-relaxed resize-none sc" style={{minHeight:250}} placeholder="הקלד או הדבק את התשובה שלך..." value={text} onChange={function(e){setText(e.target.value)}}></textarea>
+                        <textarea class="flex-1 w-full p-5 outline-none text-slate-700 text-base leading-relaxed resize-none sc" style={{minHeight:220}} placeholder="הקלד או הדבק את התשובה שלך..." value={text} onChange={function(e){setText(e.target.value)}}></textarea>
                         <div class="px-4 py-3 bg-slate-50 border-t flex gap-3">
-                            <button onClick={function(){togRec('text')}} class={'w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 text-slate-600 hover:bg-slate-300')}>&#127897;</button>
+                            <button onClick={function(){togRec('text')}} class={'w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all text-lg '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 text-slate-600 hover:bg-slate-300')}>&#127897;</button>
                             <button onClick={analyze} disabled={loading} class={'flex-1 py-3 rounded-2xl font-bold text-white transition-all '+(loading?'bg-slate-400':'bg-orange-800 hover:bg-orange-900 active:scale-95')}>
-                                {loading?<span class="flex items-center justify-center gap-2"><span class="ld"></span> בודק...</span>:'שלח לניתוח'}
+                                {loading?<span class="flex items-center justify-center gap-2"><span class="ld"></span> בודק מול 3 מודלים...</span>:'&#128203; שלח לניתוח'}
                             </button>
                         </div>
                     </div>
                 </div>
+
+                {/* Results */}
                 <div class="w-full lg:w-1/2 overflow-y-auto sc pb-10">
-                    {!results&&!loading&&<div class="h-64 flex flex-col items-center justify-center text-slate-300"><div class="text-5xl mb-3">&#128202;</div><div class="font-bold">הניתוח יופיע כאן</div></div>}
+                    {!results&&!loading&&<div class="h-64 flex flex-col items-center justify-center text-slate-300"><div class="text-5xl mb-3">&#128202;</div><div class="font-bold">הניתוח יופיע כאן</div><div class="text-xs mt-2">Gemini 3.1 Pro &middot; Claude Opus 4.6 &middot; GPT-4o</div></div>}
                     {results&&<div class="space-y-4 fi">
                         <div class="flex lg:hidden p-1 bg-slate-200 rounded-xl gap-1 mb-2">
                             {['gemini','claude','gpt'].map(function(m){return <button key={m} onClick={function(){setTab(m)}} class={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='gemini'?'Gemini 3.1':m==='claude'?'Opus 4.6':'GPT-4o'}</button>})}
@@ -239,14 +458,21 @@ function App(){
                         <div class={'lg:block '+(tab==='gemini'?'block':'hidden')}><RC data={results.gemini} name="Gemini 3.1 Pro"/></div>
                         <div class={'lg:block mt-4 '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Opus 4.6"/></div>
                         <div class={'lg:block mt-4 '+(tab==='gpt'?'block':'hidden')}><RC data={results.gpt} name="GPT-4o"/></div>
+
+                        {/* Average Score */}
+                        {(results.gemini||results.claude||results.gpt)&&<div class="bg-slate-800 text-white p-5 rounded-2xl text-center mt-4">
+                            <div class="text-xs text-slate-400 mb-1">ציון ממוצע</div>
+                            <div class="text-4xl font-black">{Math.round(([results.gemini?.total_score,results.claude?.total_score,results.gpt?.total_score].filter(function(x){return x}).reduce(function(a,b){return a+b},0))/([results.gemini?.total_score,results.claude?.total_score,results.gpt?.total_score].filter(function(x){return x}).length||1))}</div>
+                        </div>}
                     </div>}
                 </div>
             </div>}
 
+            {/* ===== MARTIN ===== */}
             {view==='martin'&&<div class="max-w-2xl mx-auto flex flex-col bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-lg fi" style={{height:'calc(100vh - 140px)'}}>
                 <div class="bg-orange-50 p-4 border-b flex items-center gap-3">
                     <div class="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center text-xl shrink-0">&#128104;&#8205;&#9877;&#65039;</div>
-                    <div><div class="font-bold text-orange-900">מרטין הבוחן</div><div class="text-xs text-orange-600">{UNIS[uni].name} &middot; Gemini 3.1 Pro</div></div>
+                    <div><div class="font-bold text-orange-900">מרטין הבוחן</div><div class="text-xs text-orange-600">{UNIS[uni].name} &middot; Gemini 3.1 Pro &middot; סימולציה חיה</div></div>
                 </div>
                 <div class="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 sc">
                     {chat.map(function(msg,i){return <div key={i} class={'flex '+(msg.role==='user'?'justify-end':'justify-start')}><div class={'max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm '+(msg.role==='user'?'bg-orange-800 text-white rounded-tl-sm':'bg-white text-slate-700 border border-slate-200 rounded-tr-sm')}>{msg.text}</div></div>})}
@@ -254,7 +480,7 @@ function App(){
                     <div ref={ceRef}/>
                 </div>
                 <div class="p-4 bg-white border-t flex gap-3 items-end">
-                    <button onClick={function(){togRec('chat')}} class={'w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 text-slate-600 hover:bg-slate-300')}>&#127897;</button>
+                    <button onClick={function(){togRec('chat')}} class={'w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all text-lg '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 text-slate-600 hover:bg-slate-300')}>&#127897;</button>
                     <textarea class="flex-1 min-h-[48px] max-h-28 p-3 bg-slate-100 rounded-xl resize-none text-sm sc outline-none" placeholder="דבר או כתוב למרטין..." value={ci} onChange={function(e){setCi(e.target.value)}} onKeyDown={function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();martinSend()}}}></textarea>
                     <button onClick={martinSend} disabled={mLd||!ci.trim()} class="w-12 h-12 bg-orange-800 text-white rounded-xl flex items-center justify-center hover:bg-orange-900 disabled:opacity-40 shrink-0 text-lg font-bold">&#8593;</button>
                 </div>
