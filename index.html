@@ -3,387 +3,268 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Med-Test Pro | Simulator</title>
+    <title>Med-Test Pro</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Heebo', sans-serif; background-color: #f8fafc; color: #0f172a; overflow-x: hidden; }
-        .watermark { position: fixed; bottom: 12px; left: 12px; opacity: 0.15; font-size: 11px; z-index: 0; pointer-events: none; font-weight: 700; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .loader { border: 3px solid #f1f5f9; border-top: 3px solid #b44a2d; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .recording-pulse { animation: pulse-red 1.5s infinite; }
-        @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+        body{font-family:'Heebo',sans-serif;background:#f8fafc;color:#0f172a}
+        .wm{position:fixed;bottom:10px;left:10px;opacity:.12;font-size:10px;pointer-events:none;font-weight:700}
+        .ld{border:3px solid #e2e8f0;border-top:3px solid #c2410c;border-radius:50%;width:20px;height:20px;animation:sp .8s linear infinite;display:inline-block}
+        @keyframes sp{to{transform:rotate(360deg)}}
+        @keyframes rp{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}.rp{animation:rp 1.5s infinite}
+        @keyframes fi{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}.fi{animation:fi .4s ease-out both}
+        .sc::-webkit-scrollbar{width:5px}.sc::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
+        textarea:focus,input:focus,select:focus{outline:none;border-color:#c2410c!important;box-shadow:0 0 0 3px rgba(194,65,12,.12)}
     </style>
 </head>
 <body>
-    <div id="root"></div>
-    <div class="watermark">© זכויות יוצרים לניתאי מלכה</div>
+<div id="root"></div>
+<div class="wm">&copy; Nitai Malka</div>
+<script type="text/babel">
+var useState=React.useState,useEffect=React.useEffect,useRef=React.useRef,Fragment=React.Fragment;
 
-    <script type="text/babel">
-        const UNIVERSITIES = {
-            mor: { name: 'מור / מרק"ם', desc: 'שאלון מחולק לסעיפים, התמקדות בקונפליקטים.', limit: 750 },
-            bgu: { name: 'בן גוריון', desc: 'שאלון בלוק פתוח, התמקדות בעומק ומניעים.', limit: 1200 },
-            tzfat: { name: 'צפת', desc: 'מחולק לסעיפים, פורמט קצר וקולע.', limit: 850 }
-        };
+var UNIS={
+    mor:{name:'מו"ר / מרק"ם',limit:750,desc:'סעיפים, 7-10 שורות'},
+    bgu:{name:'בן-גוריון',limit:1200,desc:'פסקה 850-1200 תווים'},
+    tzfat:{name:'צפת / בר-אילן',limit:850,desc:'850 תווים לסעיף'},
+    haifa:{name:'חיפה',limit:1200,desc:'פסקה 850-1200 תווים'}
+};
 
-        function App() {
-            const [keys, setKeys] = React.useState(null);
-            const [db, setDb] = React.useState(null);
-            const [keysError, setKeysError] = React.useState(false);
+var RUBRIC="You are an extremely strict examiner for Israeli medical school admissions. Be direct, do NOT flatter.\n\nScoring Rubric (0-100):\nPart A Technical (20): Space limit(5), Chronological relevance post-highschool(5), Complete answer(5), Unique story(5).\nPart B Narrative (30): STAR model with active verbs(10), Internal rationale(10), Clarity(10).\nPart C Personality HEXACO (50): Honesty-Humility full responsibility no buts(15), Deep personal reflection not generic(15), Empathy for others(10), Real resilience under pressure(10).\n\nRed flags = 0: fabrication, blaming others, insensitivity, paternalism.\nBonuses: interpersonal difficulty, moral complexity, both sides shown.\nFor doctor simulations: communication, empathy, boundaries, patient autonomy.\nFor ethical dilemmas: complexity, conflicting values, reasoning process.\nFor video: structure, brevity 60-90sec, authenticity.\n\nALL text MUST be in Hebrew.\nRespond ONLY valid JSON no markdown:\n{\"total_score\":0,\"grade_label\":\"\",\"one_line\":\"\",\"sections\":{\"technical\":{\"score\":0,\"max\":20,\"notes\":\"\"},\"narrative\":{\"score\":0,\"max\":30,\"notes\":\"\"},\"personality\":{\"score\":0,\"max\":50,\"notes\":\"\"}},\"red_flags\":[],\"strengths\":[],\"improvements\":[],\"rewrite_suggestion\":\"\",\"personality_profile\":{\"honesty_humility\":{\"score\":0,\"max\":15,\"note\":\"\"},\"reflection\":{\"score\":0,\"max\":15,\"note\":\"\"},\"empathy\":{\"score\":0,\"max\":10,\"note\":\"\"},\"resilience\":{\"score\":0,\"max\":10,\"note\":\"\"}}}";
 
-            const [view, setView] = React.useState('home');
-            const [uni, setUni] = React.useState('mor');
-            
-            const [text, setText] = React.useState('');
-            const [loading, setLoading] = React.useState(false);
-            const [results, setResults] = React.useState(null);
-            const [activeTab, setActiveTab] = React.useState('gemini');
+var MSYS="You are Martin, a tough interviewer for Israeli medical school admissions.\nRules: challenge the candidate, probe deeper, never accept surface answers.\nIf generic demand SPECIFIC example. If blaming others call it out. If no reasoning ask why.\nNever give scores. Natural Hebrew, 2-3 sentences max.\nChange topics after 3-4 exchanges. Occasionally throw ethical dilemmas.";
 
-            const [timer, setTimer] = React.useState(180);
-            const [timerActive, setTimerActive] = React.useState(false);
-            const [isRecording, setIsRecording] = React.useState(false);
-            const [recognition, setRecognition] = React.useState(null);
+var QS=[
+    {c:'bio',q:'ספר על מקרה שבו פגעת במישהו. איך הבנת? מה עשית? מה למדת?'},
+    {c:'bio',q:'תאר תקשורת לא טובה עם אדם אחר. מה הקושי? איך פתרת?'},
+    {c:'bio',q:'תאר משימה שנכשלת בה. מה הרגשת? איך התמודדת?'},
+    {c:'bio',q:'ספר על ביקורת שקיבלת. איך הגבת? איך השפיעה?'},
+    {c:'bio',q:'היכן התנדבת? מה פחות אהבת? איך התמודדת?'},
+    {c:'bio',q:'מה מושך אותך ברפואה? דוגמאות מהחיים.'},
+    {c:'vid',q:'תאר תקופה של רגשות שליליים. מה עבר עליך ואיך התמודדת?'},
+    {c:'vid',q:'מישהו הגיב בחוסר פרופורציה. מה עשית?'},
+    {c:'sit',q:'אתה רופא. מטופל כועס חיכה 3 שעות. מה תעשה?'},
+    {c:'sit',q:'רופא בכיר טעה במינון. אומר לא להתערב. מה עכשיו?'},
+    {c:'sit',q:'משפחה מבקשת שלא תספר למטופל בן 70 צלול על מצבו. הוא שואל. מה תעשה?'},
+    {c:'dil',q:'מכשיר הנשמה אחד, שני חולים: צעיר 25 ומבוגר 78. איך תחליט?'},
+    {c:'dil',q:'מטופל בן 17 משתמש בסמים, מבקש סודיות. ההורים שואלים. מה תעשה?'},
+    {c:'dil',q:'מטופלת מבקשת הליך מותר בחוק שסותר את ערכיך. מה תעשה?'}
+];
+var CN={bio:'ביוגרפי',vid:'וידאו',sit:'סיטואציה',dil:'דילמה'};
 
-            const [chat, setChat] = React.useState([{role: 'martin', text: 'שלום ניתאי. אני מרטין ואני אראיין אותך היום. בוא נתחיל - ספר לי על מקרה שבו היית צריך לשנות את דעתך בעקבות ביקורת שקיבלת.'}]);
-            const [chatInput, setChatInput] = React.useState('');
-            const [martinLoading, setMartinLoading] = React.useState(false);
+function pj(t){try{return JSON.parse(t.replace(/```json|```/g,'').trim())}catch(e){return null}}
+function fmt(s){var m=Math.floor(s/60),c=s%60;return(m<10?'0':'')+m+':'+(c<10?'0':'')+c}
+function sC(s){return s>=80?'#16a34a':s>=60?'#ca8a04':'#dc2626'}
 
-            React.useEffect(() => {
-                fetch('/api/keys')
-                    .then(res => {
-                        if(!res.ok) throw new Error("Network error");
-                        return res.json();
-                    })
-                    .then(data => {
-                        setKeys(data);
-                        if(data.FIREBASE) {
-                            try {
-                                if (!firebase.apps.length) {
-                                    firebase.initializeApp({ apiKey: data.FIREBASE, projectId: "med-test-nitai" });
-                                }
-                                setDb(firebase.firestore());
-                            } catch(e) { console.warn("Firebase Init Error", e); }
-                        }
-                    })
-                    .catch((err) => {
-                        console.error(err);
-                        setKeysError(true);
-                    });
-            }, []);
+function Bar(p){
+    var pct=Math.round((p.score/p.max)*100),c=sC(pct);
+    return React.createElement('div',{style:{marginBottom:10}},[
+        React.createElement('div',{key:'h',style:{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}},[
+            React.createElement('span',{key:'l'},p.label),
+            React.createElement('span',{key:'s',style:{color:c}},p.score+'/'+p.max)
+        ]),
+        React.createElement('div',{key:'bg',style:{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}},
+            React.createElement('div',{style:{height:'100%',width:pct+'%',background:c,borderRadius:3,transition:'width .6s'}})
+        ),
+        p.note?React.createElement('div',{key:'n',style:{fontSize:11,color:'#64748b',marginTop:3,lineHeight:1.5}},p.note):null
+    ]);
+}
 
-            React.useEffect(() => {
-                let interval = null;
-                if (timerActive && timer > 0) {
-                    interval = setInterval(() => setTimer(timer - 1), 1000);
-                } else if (timer === 0) {
-                    setTimerActive(false);
-                    if (isRecording && recognition) { recognition.stop(); setIsRecording(false); }
-                }
-                return () => clearInterval(interval);
-            }, [timerActive, timer, isRecording, recognition]);
+function App(){
+    var s=useState,u=useEffect,r=useRef;
+    var _v=s('home'),view=_v[0],setView=_v[1];
+    var _k=s(null),keys=_k[0],setKeys=_k[1];
+    var _ke=s(null),kErr=_ke[0],setKErr=_ke[1];
+    var _u=s('tzfat'),uni=_u[0],setUni=_u[1];
+    var _tx=s(''),text=_tx[0],setText=_tx[1];
+    var _ld=s(false),loading=_ld[0],setLoading=_ld[1];
+    var _rs=s(null),results=_rs[0],setResults=_rs[1];
+    var _tb=s('gemini'),tab=_tb[0],setTab=_tb[1];
+    var _qi=s(null),qIdx=_qi[0],setQIdx=_qi[1];
+    var _ch=s([]),chat=_ch[0],setChat=_ch[1];
+    var _ci=s(''),ci=_ci[0],setCi=_ci[1];
+    var _ml=s(false),mLd=_ml[0],setMLd=_ml[1];
+    var _ti=s(0),timer=_ti[0],setTimer=_ti[1];
+    var _to=s(false),tOn=_to[0],setTOn=_to[1];
+    var _tm=s('up'),tMode=_tm[0],setTMode=_tm[1];
+    var _rc=s(false),isRec=_rc[0],setIsRec=_rc[1];
+    var _ro=s(null),recO=_ro[0],setRecO=_ro[1];
+    var ceRef=r(null);
 
-            if (keysError) return <div class="text-center mt-20 p-6 bg-red-50 rounded-xl font-bold text-red-600 max-w-md mx-auto shadow">שגיאה במשיכת המפתחות מהכספת. וודא שקובץ api/keys.js קיים ב-GitHub.</div>;
-            if (!keys) return <div class="flex flex-col items-center justify-center min-h-screen"><span class="loader border-slate-200 border-top-orange-800 w-12 h-12 mb-4"></span><p class="font-bold text-slate-500">פותח כספת מאובטחת...</p></div>;
+    u(function(){fetch('/api/keys').then(function(r){if(!r.ok)throw new Error('err');return r.json()}).then(function(d){setKeys(d)}).catch(function(e){setKErr(e.message)})},[]);
+    u(function(){if(!tOn)return;var iv=setInterval(function(){setTimer(function(t){if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1})},1000);return function(){clearInterval(iv)}},[tOn,tMode]);
+    u(function(){if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
 
-            const getSysPrompt = () => `אתה בוחן קפדני במיוני רפואה. המסלול: ${UNIVERSITIES[uni].name}. מגבלת תווים רצויה: ${UNIVERSITIES[uni].limit}.
-Evaluate strictly based on this Rubric (0-100). Do not flatter.
-Part A: Technical (20) - Character limit adherence, Completeness.
-Part B: Narrative (30) - STAR Model Adherence (Situation, Task, Action, Result), Rationale, Clarity.
-Part C: Personality HEXACO (50) - Honesty/Humility (15), Reflection (15), Empathy (10), Resilience (10).
-Red flags = 0 score: blaming others, insensitivity, defensiveness.
-ALL text MUST be in Hebrew. Respond ONLY with a valid JSON:
-{"total_score":0,"grade_label":"מצוין / סביר / טעון שיפור","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
+    function togRec(target){
+        if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}
+        var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+        if(!SR){alert('השתמש בכרום.');return}
+        var rc=new SR();rc.lang='he-IL';rc.continuous=true;rc.interimResults=false;
+        rc.onresult=function(e){var f='';for(var i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)f+=e.results[i][0].transcript+' '}if(f){if(target==='chat')setCi(function(p){return p+' '+f});else setText(function(p){return p+' '+f})}};
+        rc.onerror=function(){setIsRec(false);setRecO(null)};rc.onend=function(){setIsRec(false);setRecO(null)};
+        rc.start();setIsRec(true);setRecO(rc);
+    }
 
-            const handleAnalyze = async () => {
-                if (text.length < 20) return alert("אנא כתוב תשובה מלאה קודם.");
-                setLoading(true); setResults(null);
-                try {
-                    if(db) await db.collection("evaluations").add({ content: text, type: 'multi-ai', uni: uni, timestamp: firebase.firestore.FieldValue.serverTimestamp() });
-                    const prompt = `תשובה לבדיקה (אורך: ${text.length} תווים):\n${text}`;
-                    
-                    const fetchModel = async (url, body, headers={}) => {
-                        const res = await fetch(url, { method: 'POST', headers: {'Content-Type': 'application/json', ...headers}, body: JSON.stringify(body) });
-                        return res.json();
-                    };
+    function pickQ(){setQIdx(Math.floor(Math.random()*QS.length))}
 
-                    const promises = [];
-                    if(keys.GEMINI) promises.push(fetchModel(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keys.GEMINI}`, { contents: [{ parts: [{ text: getSysPrompt() + "\n\n" + prompt }] }] }).then(d => ({sys: 'gemini', data: d})));
-                    if(keys.CLAUDE) promises.push(fetchModel('https://api.anthropic.com/v1/messages', { model: "claude-3-haiku-20240307", max_tokens: 1000, system: getSysPrompt(), messages: [{role: "user", content: prompt}] }, { 'x-api-key': keys.CLAUDE, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' }).then(d => ({sys: 'claude', data: d})));
-                    if(keys.GPT) promises.push(fetchModel('https://api.openai.com/v1/chat/completions', { model: "gpt-4o-mini", messages: [{role: "system", content: getSysPrompt()}, {role: "user", content: prompt}] }, { 'Authorization': `Bearer ${keys.GPT}` }).then(d => ({sys: 'gpt', data: d})));
+    async function analyze(){
+        if(text.length<20){alert('כתוב תשובה מלאה.');return}
+        setLoading(true);setResults(null);
+        try{
+            var prompt='Institution: '+UNIS[uni].name+'\nLimit: '+UNIS[uni].limit+'\nActual: '+text.length+'\n\nAnswer:\n'+text;
+            var promises=[];
+            if(keys.GEMINI){promises.push(fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key='+keys.GEMINI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:RUBRIC}]},contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.3}})}).then(function(r){return r.json()}).then(function(d){return{sys:'gemini',data:d}}).catch(function(){return{sys:'gemini',data:null}}))}
+            if(keys.CLAUDE){promises.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,system:RUBRIC})}).then(function(r){return r.json()}).then(function(d){return{sys:'claude',data:d}}).catch(function(){return{sys:'claude',data:null}}))}
+            if(keys.GPT){promises.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:0.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(function(r){return r.json()}).then(function(d){return{sys:'gpt',data:d}}).catch(function(){return{sys:'gpt',data:null}}))}
+            var raw=await Promise.allSettled(promises);
+            var parsed={gemini:null,claude:null,gpt:null};
+            raw.forEach(function(r){if(r.status!=='fulfilled'||!r.value.data)return;var v=r.value;try{if(v.sys==='gemini')parsed.gemini=pj(v.data.candidates[0].content.parts[0].text);if(v.sys==='claude'){var t=v.data.content?v.data.content[0].text:(v.data.text||'');parsed.claude=pj(t)}if(v.sys==='gpt')parsed.gpt=pj(v.data.choices[0].message.content)}catch(e){}});
+            setResults(parsed);if(parsed.gemini)setTab('gemini');else if(parsed.claude)setTab('claude');else if(parsed.gpt)setTab('gpt');
+        }catch(e){alert('שגיאה: '+e.message)}finally{setLoading(false)}
+    }
 
-                    const resultsRaw = await Promise.allSettled(promises);
-                    const parsed = { gemini: null, claude: null, gpt: null };
-                    
-                    const parseSafe = (rawText) => { try { return JSON.parse(rawText.replace(/```json|```/g, "").trim()); } catch(e) { return null; } };
+    async function martinSend(){
+        if(!ci.trim()||!keys.GEMINI)return;
+        var nc=chat.concat([{role:'user',text:ci}]);setChat(nc);setCi('');setMLd(true);
+        try{
+            var hist=nc.map(function(m){return m.role==='user'?'Candidate: '+m.text:'Martin: '+m.text}).join('\n');
+            var res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key='+keys.GEMINI,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({system_instruction:{parts:[{text:MSYS+'\nInstitution: '+UNIS[uni].name}]},contents:[{parts:[{text:'Conversation:\n'+hist+'\n\nRespond as Martin (2-3 sentences Hebrew):'}]}],generationConfig:{temperature:0.7,maxOutputTokens:200}})});
+            var data=await res.json();var reply=data.candidates[0].content.parts[0].text;
+            setChat(nc.concat([{role:'martin',text:reply}]));
+            if('speechSynthesis' in window){window.speechSynthesis.cancel();var ut=new SpeechSynthesisUtterance(reply);ut.lang='he-IL';ut.rate=1.05;window.speechSynthesis.speak(ut)}
+        }catch(e){setChat(nc.concat([{role:'martin',text:'שגיאת תקשורת. נסה שוב.'}]))}finally{setMLd(false)}
+    }
 
-                    resultsRaw.forEach(r => {
-                        if(r.status === 'fulfilled') {
-                            if(r.value.sys === 'gemini') parsed.gemini = parseSafe(r.value.data.candidates?.[0]?.content?.parts?.[0]?.text || "{}");
-                            if(r.value.sys === 'claude') parsed.claude = parseSafe(r.value.data.content?.[0]?.text || "{}");
-                            if(r.value.sys === 'gpt') parsed.gpt = parseSafe(r.value.data.choices?.[0]?.message?.content || "{}");
-                        }
-                    });
-                    setResults(parsed);
-                } catch (e) { alert("שגיאה בתקשורת עם המודלים."); } 
-                finally { setLoading(false); }
-            };
+    function startMartin(){var q=QS[Math.floor(Math.random()*QS.length)];setChat([{role:'martin',text:'שלום. אני מרטין, מראיין במיוני רפואה. נתחיל:\n\n'+q.q}]);setCi('');setView('martin')}
 
-            const handleMartinSend = async () => {
-                if(!chatInput.trim() || !keys.GEMINI) return;
-                const newChat = [...chat, {role: 'user', text: chatInput}];
-                setChat(newChat); setChatInput(''); setMartinLoading(true);
+    if(kErr)return <div class="flex items-center justify-center min-h-screen"><div class="bg-red-50 border border-red-200 rounded-2xl p-8 max-w-md text-center"><div class="text-3xl mb-3">&#9888;</div><div class="font-bold text-red-700 mb-2">שגיאה בטעינת מפתחות</div><div class="text-sm text-red-500">וודא שקובץ /api/keys קיים ומוגדרים Environment Variables ב-Vercel</div></div></div>;
+    if(!keys)return <div class="flex flex-col items-center justify-center min-h-screen gap-3"><span class="ld" style={{width:32,height:32}}></span><div class="text-slate-400 font-bold text-sm">מתחבר לכספת...</div></div>;
 
-                try {
-                    const prompt = `אתה מרטין, מראיין קשוח למיוני רפואה. מסלול: ${UNIVERSITIES[uni].name}. 
-המועמד ענה: "${chatInput}". 
-אל תיתן לו ציון. תאתגר אותו, תשאל שאלת המשך קשה, תבקש דוגמה, או תגיד שהתשובה כללית ותדרוש פירוט. תהיה ענייני, חד, בשפה עברית טבעית (עד 3 משפטים).`;
-                    
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keys.GEMINI}`, {
-                        method: 'POST', headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-                    });
-                    const data = await res.json();
-                    const reply = data.candidates[0].content.parts[0].text;
-                    setChat([...newChat, {role: 'martin', text: reply}]);
-                    
-                    if ('speechSynthesis' in window) {
-                        const utterance = new SpeechSynthesisUtterance(reply);
-                        utterance.lang = 'he-IL';
-                        window.speechSynthesis.speak(utterance);
-                    }
-                } catch(e) { setChat([...newChat, {role: 'martin', text: 'שגיאת תקשורת, נסה שוב.'}]); }
-                finally { setMartinLoading(false); }
-            };
+    var uI=UNIS[uni];
 
-            const toggleRecording = () => {
-                if (isRecording && recognition) {
-                    recognition.stop();
-                    setIsRecording(false);
-                } else {
-                    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-                    if (!SR) return alert("הדפדפן לא תומך בהקלטה. נסה בכרום.");
-                    const rec = new SR();
-                    rec.lang = 'he-IL'; rec.continuous = true; rec.interimResults = true;
-                    rec.onresult = (e) => {
-                        let final = '';
-                        for (let i = e.resultIndex; i < e.results.length; i++) {
-                            if (e.results[i].isFinal) final += e.results[i][0].transcript + ' ';
-                        }
-                        if(final) {
-                            if(view === 'multi' || view === 'timed') setText(prev => prev + ' ' + final);
-                            if(view === 'martin') setChatInput(prev => prev + ' ' + final);
-                        }
-                    };
-                    rec.start();
-                    setRecognition(rec);
-                    setIsRecording(true);
-                }
-            };
+    // Result Card Component
+    function RC({data,name}){
+        if(!data)return <div class="p-8 bg-white rounded-2xl border-2 border-dashed border-slate-200 text-center"><p class="text-slate-400 font-bold">{name}</p><p class="text-xs text-slate-300 mt-1">לא זמין</p></div>;
+        var sc=data.total_score,c=sC(sc);
+        return(<div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm fi" style={{borderTopColor:c,borderTopWidth:3}}>
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                <div><div class="text-3xl font-black" style={{color:c}}>{sc}<span class="text-sm font-normal text-slate-400"> / 100</span></div><div class="text-sm font-bold" style={{color:c}}>{data.grade_label}</div></div>
+                <div class="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">{name}</div>
+            </div>
+            <p class="text-sm text-slate-600 italic mb-4 leading-relaxed">"{data.one_line}"</p>
+            <Bar label="מסגרת טכנית" score={data.sections?.technical?.score||0} max={20} note={data.sections?.technical?.notes}/>
+            <Bar label="מבנה נרטיבי STAR" score={data.sections?.narrative?.score||0} max={30} note={data.sections?.narrative?.notes}/>
+            <Bar label="פרופיל HEXACO" score={data.sections?.personality?.score||0} max={50} note={data.sections?.personality?.notes}/>
+            {data.personality_profile&&<div class="mt-4 pt-3 border-t border-slate-100"><div class="text-xs font-bold text-slate-500 mb-2">פירוט HEXACO</div>
+                <Bar label="כנות וענווה" score={data.personality_profile.honesty_humility?.score||0} max={15} note={data.personality_profile.honesty_humility?.note}/>
+                <Bar label="רפלקציה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/>
+                <Bar label="אמפתיה" score={data.personality_profile.empathy?.score||0} max={10} note={data.personality_profile.empathy?.note}/>
+                <Bar label="חוסן" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/>
+            </div>}
+            {data.red_flags&&data.red_flags.length>0&&<div class="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div class="text-xs font-bold text-red-700 mb-1">דגלים אדומים</div>{data.red_flags.map(function(f,i){return <div key={i} class="text-xs text-red-600">- {f}</div>})}</div>}
+            {data.strengths&&data.strengths.length>0&&<div class="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div class="text-xs font-bold text-green-700 mb-1">חוזקות</div>{data.strengths.map(function(s,i){return <div key={i} class="text-xs text-green-600">- {s}</div>})}</div>}
+            {data.improvements&&data.improvements.length>0&&<div class="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div class="text-xs font-bold text-blue-700 mb-1">מה לשפר</div>{data.improvements.map(function(m,i){return <div key={i} class="text-xs text-blue-600">{(i+1)+'. '+m}</div>})}</div>}
+            {data.rewrite_suggestion&&<div class="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div class="text-xs font-bold text-orange-800 mb-1">הצעת ניסוח</div><p class="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}
+        </div>);
+    }
 
-            const formatTime = (seconds) => {
-                const m = Math.floor(seconds / 60);
-                const s = seconds % 60;
-                return `${m}:${s.toString().padStart(2, '0')}`;
-            };
+    return(<div class="min-h-screen flex flex-col">
+        <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3 cursor-pointer" onClick={function(){setView('home');setTOn(false)}}>
+                <div class="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black text-base">M</div>
+                <h1 class="text-lg font-black text-slate-800">Med-Test <span class="text-orange-700">Pro</span></h1>
+            </div>
+            {view!=='home'&&<select value={uni} onChange={function(e){setUni(e.target.value)}} class="bg-slate-100 border border-slate-200 text-xs font-bold py-2 px-3 rounded-full cursor-pointer">{Object.entries(UNIS).map(function(e){return <option key={e[0]} value={e[0]}>{e[1].name}</option>})}</select>}
+        </header>
 
-            const renderScore = (label, score, max) => (
-                <div class="mb-2">
-                    <div class="flex justify-between text-xs font-bold mb-1 text-slate-600"><span>{label}</span><span>{score}/{max}</span></div>
-                    <div class="h-1.5 bg-slate-200 rounded-full"><div class="h-full bg-orange-700 rounded-full transition-all" style={{width: `${(score/max)*100}%`}}></div></div>
+        <main class="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
+
+            {view==='home'&&<div class="max-w-3xl mx-auto mt-8 fi">
+                <div class="text-center mb-10"><h2 class="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p class="text-slate-500">בחר סגנון תרגול</p></div>
+                <div class="grid md:grid-cols-3 gap-5">
+                    <button onClick={function(){setView('multi');setText('');setResults(null);pickQ()}} class="bg-white p-8 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
+                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">&#9997;&#65039;</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-2">תרגול כתוב</h3>
+                        <p class="text-xs text-slate-500">Gemini 3.1 Pro + Claude Opus 4.6 + GPT-4o</p>
+                    </button>
+                    <button onClick={startMartin} class="bg-white p-8 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
+                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">&#128483;&#65039;</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-2">ראיון חי (מרטין)</h3>
+                        <p class="text-xs text-slate-500">מראיין AI שמתקיל ומדבר בחזרה</p>
+                    </button>
+                    <button onClick={function(){setView('timed');setText('');setTimer(0);setTOn(false);setResults(null);pickQ()}} class="bg-white p-8 rounded-3xl border-2 border-slate-200 hover:border-orange-500 hover:shadow-lg transition-all text-right group">
+                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">&#9201;</div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-2">מבחן על השעון</h3>
+                        <p class="text-xs text-slate-500">כתיבה + הקלטה תחת לחץ זמן</p>
+                    </button>
                 </div>
-            );
+            </div>}
 
-            const renderResultCard = (data, name) => {
-                if(!data) return <div class="p-6 bg-white rounded-2xl border border-slate-200 text-center text-slate-400 font-bold">מודל {name} לא זמין או לא הוגדר מפתח בכספת</div>;
-                return (
-                    <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-                        <div class="flex items-center justify-between border-b pb-4">
-                            <div>
-                                <h3 class="font-black text-xl text-slate-800">{data.total_score} <span class="text-sm font-normal text-slate-500">/ 100</span></h3>
-                                <div class="text-sm font-bold text-orange-700">{data.grade_label}</div>
-                            </div>
-                            <div class="text-xs bg-slate-100 text-slate-500 px-3 py-1 rounded-full font-bold uppercase tracking-wider">{name}</div>
+            {(view==='multi'||view==='timed')&&<div class="flex flex-col lg:flex-row gap-6 fi" style={{minHeight:'calc(100vh - 140px)'}}>
+                <div class="w-full lg:w-1/2 flex flex-col gap-4">
+                    {view==='timed'&&<div class="bg-slate-800 text-white p-5 rounded-2xl flex justify-between items-center shadow-lg">
+                        <div><div class="text-xs text-slate-400 font-bold mb-1">{tMode==='down'?'זמן נותר':'זמן שעבר'}</div><div class={'text-3xl font-mono font-black '+(tMode==='down'&&timer<30?'text-red-400':'')}>{fmt(timer)}</div></div>
+                        <div class="flex gap-2 flex-wrap">
+                            {!tOn?<Fragment><button onClick={function(){setTMode('up');setTimer(0);setTOn(true)}} class="bg-orange-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-orange-500">ספירה</button><button onClick={function(){setTMode('down');setTimer(120);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">2 דק</button><button onClick={function(){setTMode('down');setTimer(300);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">5 דק</button><button onClick={function(){setTMode('down');setTimer(600);setTOn(true)}} class="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">10 דק</button></Fragment>:<Fragment><button onClick={function(){setTOn(false)}} class="bg-yellow-600 px-4 py-2 rounded-xl text-sm font-bold">עצור</button><button onClick={function(){setTOn(false);setTimer(0)}} class="bg-red-600 px-4 py-2 rounded-xl text-sm font-bold">אפס</button></Fragment>}
                         </div>
-                        <p class="text-sm text-slate-600 italic leading-relaxed">"{data.one_line}"</p>
-                        
-                        <div class="space-y-3 pt-2">
-                            {renderScore("טכני (תווים ומבנה)", data.sections?.technical?.score, 20)}
-                            {renderScore("נרטיב ומודל STAR", data.sections?.narrative?.score, 30)}
-                            {renderScore("פרופיל HEXACO", data.sections?.personality?.score, 50)}
+                    </div>}
+                    {qIdx!==null&&<div class="bg-orange-50 border border-orange-200 rounded-2xl p-4 flex items-start gap-3">
+                        <span class="px-2 py-1 rounded-lg text-xs font-bold text-white bg-orange-600">{CN[QS[qIdx].c]}</span>
+                        <p class="text-sm text-orange-900 leading-relaxed flex-1">{QS[qIdx].q}</p>
+                        <button onClick={pickQ} class="text-xs text-orange-500 font-bold hover:text-orange-700 shrink-0">אחרת</button>
+                    </div>}
+                    <div class="flex-1 flex flex-col bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-4 py-3 border-b bg-slate-50 flex justify-between items-center">
+                            <span class="text-xs font-bold text-slate-400">כתיבה / תמלול</span>
+                            <span class={'text-xs font-bold '+(text.length>uI.limit?'text-red-500':'text-slate-400')}>{text.length} / {uI.limit}{text.length>uI.limit&&' ⚠️'}</span>
                         </div>
-
-                        {data.rewrite_suggestion && (
-                            <div class="mt-4 p-4 bg-orange-50 rounded-xl border border-orange-100">
-                                <h4 class="text-xs font-bold text-orange-900 mb-2">💡 הצעת שכתוב</h4>
-                                <p class="text-[13px] text-orange-800 leading-relaxed">{data.rewrite_suggestion}</p>
-                            </div>
-                        )}
+                        <textarea class="flex-1 w-full p-5 outline-none text-slate-700 text-base leading-relaxed resize-none sc" style={{minHeight:250}} placeholder="הקלד או הדבק את התשובה שלך..." value={text} onChange={function(e){setText(e.target.value)}}></textarea>
+                        <div class="px-4 py-3 bg-slate-50 border-t flex gap-3">
+                            <button onClick={function(){togRec('text')}} class={'w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 text-slate-600 hover:bg-slate-300')}>&#127897;</button>
+                            <button onClick={analyze} disabled={loading} class={'flex-1 py-3 rounded-2xl font-bold text-white transition-all '+(loading?'bg-slate-400':'bg-orange-800 hover:bg-orange-900 active:scale-95')}>
+                                {loading?<span class="flex items-center justify-center gap-2"><span class="ld"></span> בודק...</span>:'שלח לניתוח'}
+                            </button>
+                        </div>
                     </div>
-                );
-            };
-
-            return (
-                <div class="min-h-screen flex flex-col">
-                    <header class="glass sticky top-0 z-50 border-b border-slate-200 p-4 flex justify-between items-center shadow-sm">
-                        <div class="flex items-center gap-3 cursor-pointer" onClick={() => {setView('home'); setTimerActive(false);}}>
-                            <div class="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black text-lg">M</div>
-                            <h1 class="text-xl font-black text-slate-800 tracking-tight">Med-Test <span class="text-orange-700">Pro</span></h1>
-                        </div>
-                        {view !== 'home' && (
-                            <select value={uni} onChange={e=>setUni(e.target.value)} class="bg-slate-100 border-none text-xs font-bold py-2 px-4 rounded-full focus:ring-0 cursor-pointer outline-none">
-                                {Object.entries(UNIVERSITIES).map(([k,v]) => <option key={k} value={k}>{v.name}</option>)}
-                            </select>
-                        )}
-                    </header>
-
-                    <main class="flex-1 p-4 md:p-8 max-w-7xl mx-auto w-full">
-                        {view === 'home' && (
-                            <div class="max-w-3xl mx-auto mt-10 space-y-6 animate-in slide-in-from-bottom-4 duration-500">
-                                <div class="text-center mb-12">
-                                    <h2 class="text-4xl font-black text-slate-800 mb-4">מוכן למיונים?</h2>
-                                    <p class="text-slate-500 text-lg">בחר את סגנון התרגול שלך להיום.</p>
-                                </div>
-                                <div class="grid md:grid-cols-3 gap-6">
-                                    <button onClick={()=>{setView('multi'); setText(''); setResults(null);}} class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-right group">
-                                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">✍️</div>
-                                        <h3 class="text-xl font-bold text-slate-800 mb-2">תרגול כתוב</h3>
-                                        <p class="text-sm text-slate-500">בדיקה מקיפה במקביל מול מודלי AI (Gemini, Claude, GPT).</p>
-                                    </button>
-                                    <button onClick={()=>{setView('martin'); setChatInput('');}} class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-right group">
-                                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">🗣️</div>
-                                        <h3 class="text-xl font-bold text-slate-800 mb-2">ראיון חי (מרטין)</h3>
-                                        <p class="text-sm text-slate-500">סימולציית צ'אט או הקלטה מול מראיין שמתקיל בזמן אמת.</p>
-                                    </button>
-                                    <button onClick={()=>{setView('timed'); setText(''); setTimer(180); setTimerActive(false);}} class="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm hover:border-orange-500 hover:shadow-md transition-all text-right group">
-                                        <div class="text-4xl mb-4 group-hover:scale-110 transition-transform">⏱️</div>
-                                        <h3 class="text-xl font-bold text-slate-800 mb-2">מבחן על השעון</h3>
-                                        <p class="text-sm text-slate-500">הקלטה קולית תחת לחץ זמן לדימוי תחנות ראיון ווידאו.</p>
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {(view === 'multi' || view === 'timed') && (
-                            <div class="flex flex-col md:flex-row gap-8 h-[calc(100vh-120px)]">
-                                <div class="w-full md:w-1/2 flex flex-col space-y-4">
-                                    {view === 'timed' && (
-                                        <div class="bg-slate-800 text-white p-6 rounded-3xl flex justify-between items-center shadow-lg">
-                                            <div>
-                                                <div class="text-sm text-slate-400 font-bold mb-1">זמן נותר</div>
-                                                <div class={`text-4xl font-mono font-black ${timer <= 30 ? 'text-red-400' : ''}`}>{formatTime(timer)}</div>
-                                            </div>
-                                            <div class="flex gap-2">
-                                                <button onClick={()=>{setTimerActive(true); if(!isRecording) toggleRecording();}} class="bg-orange-600 px-6 py-3 rounded-xl font-bold hover:bg-orange-500 transition">התחל</button>
-                                                <button onClick={()=>{setTimerActive(false); if(isRecording) toggleRecording();}} class="bg-slate-600 px-4 py-3 rounded-xl font-bold hover:bg-slate-500 transition">עצור</button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div class="flex-1 relative flex flex-col bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                                        <div class="p-4 border-b bg-slate-50 flex justify-between items-center">
-                                            <span class="text-xs font-bold text-slate-500 tracking-widest uppercase">אזור כתיבה / תמלול</span>
-                                            <span class={`text-xs font-bold ${text.length > UNIVERSITIES[uni].limit ? 'text-red-500' : 'text-slate-400'}`}>
-                                                {text.length} / {UNIVERSITIES[uni].limit} תווים
-                                            </span>
-                                        </div>
-                                        <textarea 
-                                            class="flex-1 w-full p-6 outline-none text-slate-700 text-lg leading-relaxed resize-none custom-scrollbar"
-                                            placeholder="הדבק או הקלד את השחזור שלך כאן..."
-                                            value={text} onChange={e=>setText(e.target.value)}
-                                        ></textarea>
-                                        <div class="p-4 bg-slate-50 border-t flex gap-3">
-                                            <button onClick={toggleRecording} class={`flex items-center justify-center w-12 h-12 rounded-full transition-all shrink-0 ${isRecording ? 'bg-red-500 text-white recording-pulse' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
-                                                🎤
-                                            </button>
-                                            <button onClick={handleAnalyze} disabled={loading} class={`flex-1 rounded-2xl font-bold text-white transition-all shadow-md ${loading ? 'bg-slate-400' : 'bg-orange-800 hover:bg-orange-900 active:scale-95'}`}>
-                                                {loading ? <span class="flex items-center justify-center gap-2"><span class="loader border-slate-200 border-top-white"></span> בוחן...</span> : 'שלח לניתוח משולש'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="w-full md:w-1/2 overflow-y-auto custom-scrollbar pr-2 pb-10">
-                                    {!results && !loading && (
-                                        <div class="h-full flex flex-col items-center justify-center text-slate-300 space-y-4">
-                                            <div class="text-6xl">📊</div>
-                                            <div class="text-lg font-bold">הניתוח יופיע כאן</div>
-                                        </div>
-                                    )}
-                                    {results && (
-                                        <div class="space-y-6 animate-in slide-in-from-right duration-500">
-                                            <div class="md:hidden flex p-1 bg-slate-200 rounded-xl gap-1 mb-4">
-                                                {['gemini', 'claude', 'gpt'].map(m => (
-                                                    <button key={m} onClick={()=>setActiveTab(m)} class={`flex-1 py-2 text-xs font-bold rounded-lg uppercase ${activeTab===m ? 'bg-white shadow text-orange-800' : 'text-slate-500'}`}>{m}</button>
-                                                ))}
-                                            </div>
-                                            
-                                            <div class="space-y-6">
-                                                <div class={activeTab==='gemini' ? 'block' : 'hidden md:block'}>{renderResultCard(results.gemini, 'Gemini 1.5')}</div>
-                                                <div class={activeTab==='claude' ? 'block' : 'hidden md:block'}>{renderResultCard(results.claude, 'Claude 3')}</div>
-                                                <div class={activeTab==='gpt' ? 'block' : 'hidden md:block'}>{renderResultCard(results.gpt, 'GPT-4')}</div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {view === 'martin' && (
-                            <div class="max-w-2xl mx-auto h-[calc(100vh-140px)] flex flex-col bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                                <div class="p-4 border-b bg-orange-50 flex items-center gap-4">
-                                    <div class="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center text-xl shrink-0">👨‍⚕️</div>
-                                    <div>
-                                        <h2 class="font-bold text-orange-900">מרטין הבוחן</h2>
-                                        <p class="text-xs text-orange-700">סימולציה: {UNIVERSITIES[uni].name}</p>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50">
-                                    {chat.map((msg, i) => (
-                                        <div key={i} class={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                            <div class={`max-w-[80%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm ${msg.role === 'user' ? 'bg-orange-800 text-white rounded-tl-none' : 'bg-white text-slate-700 border border-slate-200 rounded-tr-none'}`}>
-                                                {msg.text}
-                                            </div>
-                                        </div>
-                                    ))}
-                                    {martinLoading && (
-                                        <div class="flex justify-start"><div class="max-w-[80%] p-4 bg-white border border-slate-200 rounded-2xl rounded-tr-none"><span class="loader border-slate-300 border-top-slate-600"></span></div></div>
-                                    )}
-                                </div>
-
-                                <div class="p-4 bg-white border-t flex gap-3 items-end">
-                                    <button onClick={toggleRecording} class={`flex items-center justify-center w-12 h-12 rounded-full shrink-0 transition-all ${isRecording ? 'bg-red-500 text-white recording-pulse' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}>
-                                        🎤
-                                    </button>
-                                    <textarea 
-                                        class="flex-1 min-h-[48px] max-h-32 p-3 bg-slate-100 rounded-2xl outline-none resize-none text-sm custom-scrollbar"
-                                        placeholder="הקלד או דבר אל מרטין..."
-                                        value={chatInput} onChange={e=>setChatInput(e.target.value)}
-                                        onKeyDown={e => {if(e.key==='Enter' && !e.shiftKey) { e.preventDefault(); handleMartinSend(); }}}
-                                    ></textarea>
-                                    <button onClick={handleMartinSend} disabled={martinLoading || !chatInput.trim()} class="w-12 h-12 bg-orange-800 text-white rounded-full flex items-center justify-center hover:bg-orange-900 disabled:opacity-50 shrink-0">
-                                        ↑
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </main>
                 </div>
-            );
-        }
+                <div class="w-full lg:w-1/2 overflow-y-auto sc pb-10">
+                    {!results&&!loading&&<div class="h-64 flex flex-col items-center justify-center text-slate-300"><div class="text-5xl mb-3">&#128202;</div><div class="font-bold">הניתוח יופיע כאן</div></div>}
+                    {results&&<div class="space-y-4 fi">
+                        <div class="flex lg:hidden p-1 bg-slate-200 rounded-xl gap-1 mb-2">
+                            {['gemini','claude','gpt'].map(function(m){return <button key={m} onClick={function(){setTab(m)}} class={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='gemini'?'Gemini 3.1':m==='claude'?'Opus 4.6':'GPT-4o'}</button>})}
+                        </div>
+                        <div class={'lg:block '+(tab==='gemini'?'block':'hidden')}><RC data={results.gemini} name="Gemini 3.1 Pro"/></div>
+                        <div class={'lg:block mt-4 '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Opus 4.6"/></div>
+                        <div class={'lg:block mt-4 '+(tab==='gpt'?'block':'hidden')}><RC data={results.gpt} name="GPT-4o"/></div>
+                    </div>}
+                </div>
+            </div>}
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
-        root.render(<App />);
-    </script>
+            {view==='martin'&&<div class="max-w-2xl mx-auto flex flex-col bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-lg fi" style={{height:'calc(100vh - 140px)'}}>
+                <div class="bg-orange-50 p-4 border-b flex items-center gap-3">
+                    <div class="w-10 h-10 bg-orange-200 rounded-full flex items-center justify-center text-xl shrink-0">&#128104;&#8205;&#9877;&#65039;</div>
+                    <div><div class="font-bold text-orange-900">מרטין הבוחן</div><div class="text-xs text-orange-600">{UNIS[uni].name} &middot; Gemini 3.1 Pro</div></div>
+                </div>
+                <div class="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 sc">
+                    {chat.map(function(msg,i){return <div key={i} class={'flex '+(msg.role==='user'?'justify-end':'justify-start')}><div class={'max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm '+(msg.role==='user'?'bg-orange-800 text-white rounded-tl-sm':'bg-white text-slate-700 border border-slate-200 rounded-tr-sm')}>{msg.text}</div></div>})}
+                    {mLd&&<div class="flex justify-start"><div class="p-4 bg-white border border-slate-200 rounded-2xl rounded-tr-sm"><span class="ld"></span></div></div>}
+                    <div ref={ceRef}/>
+                </div>
+                <div class="p-4 bg-white border-t flex gap-3 items-end">
+                    <button onClick={function(){togRec('chat')}} class={'w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-all '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 text-slate-600 hover:bg-slate-300')}>&#127897;</button>
+                    <textarea class="flex-1 min-h-[48px] max-h-28 p-3 bg-slate-100 rounded-xl resize-none text-sm sc outline-none" placeholder="דבר או כתוב למרטין..." value={ci} onChange={function(e){setCi(e.target.value)}} onKeyDown={function(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();martinSend()}}}></textarea>
+                    <button onClick={martinSend} disabled={mLd||!ci.trim()} class="w-12 h-12 bg-orange-800 text-white rounded-xl flex items-center justify-center hover:bg-orange-900 disabled:opacity-40 shrink-0 text-lg font-bold">&#8593;</button>
+                </div>
+            </div>}
+
+        </main>
+    </div>);
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+</script>
 </body>
 </html>
