@@ -2,7 +2,7 @@
 
 export const config = {
   api: {
-    bodyParser: false, // אנחנו צריכים את המידע כ-Buffer כי זה קובץ אודיו
+    bodyParser: false,
   },
 };
 
@@ -12,15 +12,14 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. איסוף המידע שמגיע כ-Buffer
     const data = [];
     for await (const chunk of req) {
       data.push(chunk);
     }
     const audioBuffer = Buffer.concat(data);
 
-    // 2. שליחה ל-Deepgram
-    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he', {
+    // הוספנו את mip_opt_out=true בסוף הכתובת כדי לבטל את שמירת הנתונים
+    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he&mip_opt_out=true', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
@@ -36,11 +35,8 @@ export default async function handler(req, res) {
     }
 
     const result = await response.json();
-    
-    // 3. חילוץ הטקסט מהתשובה של Deepgram
     const transcript = result.results?.channels[0]?.alternatives[0]?.transcript || '';
 
-    // 4. החזרת הטקסט לאתר
     res.status(200).json({ transcript });
 
   } catch (error) {
