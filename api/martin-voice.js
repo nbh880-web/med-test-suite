@@ -1,7 +1,11 @@
 import textToSpeech from '@google-cloud/text-to-speech';
 
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON || '{}');
-const ttsClient = new textToSpeech.TextToSpeechClient({ credentials });
+const ttsClient = new textToSpeech.TextToSpeechClient({ 
+  credentials: {
+    client_email: process.env.GOOGLE_CLIENT_EMAIL,
+    private_key: (process.env.GOOGLE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+  }
+});
 
 export const config = {
   api: { bodyParser: { sizeLimit: '10mb' } },
@@ -14,10 +18,8 @@ export default async function handler(req, res) {
     const { audioBase64, chatHistory, uni } = req.body;
     if (!audioBase64) return res.status(400).json({ error: 'No audio provided' });
 
-    // 1. הפיכת ה-Base64 חזרה לקובץ אודיו בינארי עבור Deepgram
     const audioBuffer = Buffer.from(audioBase64, 'base64');
 
-    // 2. תמלול דרך Deepgram
     const sttRes = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he&mip_opt_out=true', {
       method: 'POST',
       headers: {
@@ -31,7 +33,6 @@ export default async function handler(req, res) {
 
     if (!userSpeech) return res.status(400).json({ error: "לא שמעתי, נסה שוב." });
 
-    // 3. יצירת הפרומפט ופנייה ל-Gemini
     const systemInstruction = `
 אתה מראיין בכיר בוועדות הקבלה לרפואה בישראל (${uni}).
 חוקי ברזל:
@@ -39,8 +40,7 @@ export default async function handler(req, res) {
 2. תן למועמד לדבר, אל תיתן משוב תוך כדי הראיון.
 3. הלוחש: עליך לזהות התחמקויות, סיסמאות ריקות או חוסר ענווה (HEXACO). אם עולה כזה, אתגר את המועמד בשאלה הבאה.
 `;
-    
-    // בונים את היסטוריית השיחה בפורמט שג'מיני אוהב
+
     const contents = chatHistory.map(msg => ({
       role: msg.role === 'martin' ? 'model' : 'user',
       parts: [{ text: msg.text }]
@@ -59,14 +59,12 @@ export default async function handler(req, res) {
     const geminiData = await geminiRes.json();
     const martinText = geminiData.candidates[0].content.parts[0].text;
 
-    // 4. הקראת התשובה דרך גוגל TTS (קול ישראלי Wavenet-B)
     const [ttsResponse] = await ttsClient.synthesizeSpeech({
       input: { text: martinText },
       voice: { languageCode: 'he-IL', name: 'he-IL-Wavenet-B' },
       audioConfig: { audioEncoding: 'MP3', speakingRate: 1.05 }
     });
 
-    // 5. שליחת התוצאות חזרה ל-Frontend
     res.status(200).json({
       userText: userSpeech,
       martinText: martinText,
