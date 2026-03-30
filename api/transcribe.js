@@ -40,11 +40,11 @@ export default async function handler(req, res) {
       method: 'POST',
       headers: {
         'Authorization': 'Token ' + process.env.DEEPGRAM_API_KEY,
-        'Content-Type': contentType,
+        'Content-Type': 'application/octet-stream', // הפתרון הסופי לבעיית הפורמטים
       },
       body: audioBuffer,
     });
-
+    
     if (!response.ok) {
       var errBody = '';
       try { errBody = await response.text(); } catch(e) {}
