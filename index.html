@@ -3,11 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Med-Test Pro | Ultimate</title>
+    <title>Med-Test Pro</title>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body{font-family:'Heebo',sans-serif;background:#f8fafc;color:#0f172a}
@@ -15,308 +17,118 @@
         .ld{border:3px solid #e2e8f0;border-top:3px solid #c2410c;border-radius:50%;width:20px;height:20px;animation:sp .8s linear infinite;display:inline-block}
         @keyframes sp{to{transform:rotate(360deg)}}
         @keyframes rp{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6)}50%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}.rp{animation:rp 1.5s infinite}
+        @keyframes fi{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}.fi{animation:fi .35s ease-out both}
         .sc::-webkit-scrollbar{width:5px}.sc::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:10px}
-        textarea:focus,input:focus{outline:none;border-color:#c2410c!important;box-shadow:0 0 0 3px rgba(194,65,12,.12)}
+        textarea:focus,input:focus,select:focus{outline:none;border-color:#c2410c!important;box-shadow:0 0 0 3px rgba(194,65,12,.12)}
     </style>
 </head>
 <body>
 <div id="root"></div>
-<div class="wm">&copy; זכויות יוצרים לניתאי מלכה</div>
+<div class="wm">&copy; Nitai Malka</div>
 <script type="text/babel">
-const { useState, useEffect, useRef, Fragment } = React;
+const {useState,useEffect,useRef,Fragment}=React;
 
-const UNIS = {
-    mor: { name: 'מו"ר / מרק"ם', limit: 750 },
-    bgu: { name: 'בן-גוריון', limit: 1200 },
-    tzfat: { name: 'צפת / בר-אילן', limit: 850 }
-};
+const UNIS={mor:{name:'מו"ר / מרק"ם',limit:750,format:'סעיפים, 7-10 שורות כתב יד',desc:'יום תחנות (8-12 תחנות, 10 דקות). שאלון ביוגרפי. השנה עובר למחשב.',traits:'אמפתיה, תקשורת, עבודת צוות, יציבות רגשית, שיקול דעת אתי',tip:'הכינו 8-12 סיפורים. מצב, פעולה, תוצאה, לקח.'},bgu:{name:'בן-גוריון',limit:1200,format:'פסקה שלמה 850-1200 תווים',desc:'מרק"ם + ביוגרפי. דגש על רפואה קהילתית ואוכלוסיות מוחלשות.',traits:'מחויבות חברתית, צניעות, עבודת צוות, עניין בפריפריה',tip:'הראו עניין באוכלוסיות מגוונות. פסקה אחת רציפה.'},tzfat:{name:'צפת / בר-אילן',limit:850,format:'850 תווים לסעיף (ממוחשב)',desc:'מבחן אישיות ממוחשב + ראיון + ביוגרפי. 21 שאלות כולל וידאו.',traits:'מוחצנות, נועם הליכות, מצפוניות, יציבות, פתיחות',tip:'דגש פריפריה. פרופיל מאוזן. עקביות שאלון-ראיון.'},haifa:{name:'חיפה',limit:1200,format:'פסקה שלמה 850-1200 תווים',desc:'מבחני אישיות + ראיונות. ועדות בוחנות מוטיבציה ואישיות.',traits:'תקשורת, אחריות, התאמה קלינית, מוטיבציה אותנטית',tip:'הכירו מערכת הבריאות. עיניים פקוחות.'},ariel:{name:'אריאל',limit:850,format:'מס"ר + שאו"ל + ביוגרפי',desc:'אחוז משמעותי אישיותי. מחפשים בשלות.',traits:'אחריות, בשלות, תקשורת, עבודת צוות',tip:'ניסיון חיים ובגרות אישית.'}};
 
-const DEFAULT_QS = [
-    'ספר על מקרה שבו פגעת במישהו. איך הבנת שפגעת? איך הרגשת ואיך פעלת?',
-    'תאר מצב של תקשורת לא טובה מול אדם אחר. מה הקושי? איך ראית את הסיטואציה?',
-    'תאר משימה חשובה שנכשלת בה למרות שציפית להצליח. מה הרגשת?',
-    'ספר על מקרה שבו קיבלת ביקורת משמעותית. מה הסיטואציה ואיך הגבת?'
-];
+const RUBRIC=`You are an extremely strict examiner for Israeli medical school admissions. Be direct, do NOT flatter.\nScoring (0-100):\nA Technical(20): limit(5), chronology post-hs(5), complete(5), unique(5).\nB Narrative(30): STAR active verbs(10), rationale(10), clarity(10).\nC HEXACO(50): honesty no buts(15), deep reflection(15), empathy(10), resilience(10).\nRed flags=0: fabrication, blaming, insensitivity, paternalism.\nBonuses: interpersonal difficulty, moral complexity.\nDoctor sim: communication, empathy, autonomy. Dilemma: complexity, values. Video: structure, brevity, authenticity.\nALL Hebrew. ONLY valid JSON:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
 
-const RUBRIC = "You are an extremely strict examiner for Israeli medical school admissions. Use STAR and HEXACO models. ALL evaluation text MUST be in Hebrew. Respond ONLY with valid JSON.";
-const COMMITTEE_PROMPT = `אתה צוות מעריכים בוועדת הקבלה לרפואה. להלן תמלול של ראיון. עליך להפיק דו"ח בפורמט JSON בלבד הכולל: {"total_score": מספר מ-1 עד 100, "one_line": "משפט סיכום", "sections": {"technical": {"score": X}, "narrative": {"score": X}, "personality": {"score": X}}, "rewrite_suggestion": "נקודות לשיפור"}. הערך כנות, ענווה ורפלקציה.`;
+const COMMITTEE=`אתה צוות מעריכים בוועדת קבלה לרפואה. תמלול ראיון להלן. הערך לפי HEXACO: כנות, ענווה, רפלקציה, אמפתיה, חוסן. זהה דגלים אדומים. הפק JSON בלבד:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
 
-function Bar(p){
-    const pct = Math.round((p.score/p.max)*100);
-    const c = pct >= 80 ? '#16a34a' : pct >= 60 ? '#ca8a04' : '#dc2626';
-    return(
-        <div style={{marginBottom:10}}>
-            <div style={{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}}><span>{p.label}</span><span style={{color:c}}>{p.score}/{p.max}</span></div>
-            <div style={{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}}><div style={{height:'100%',width:pct+'%',background:c,borderRadius:3,transition:'width .6s'}}/></div>
-        </div>
-    );
-}
+const DQ=[{c:'bio',t:'אירועי עבר',q:'ספר על מקרה שבו פגעת במישהו. איך הבנת? איך הרגשת ופעלת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'תאר תקשורת לא טובה מול אדם אחר. מה הקושי? איך ראית את זה? איך פתרת?'},{c:'bio',t:'אירועי עבר',q:'תאר משימה שנכשלת בה. מה הרגשת? איך התמודדת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'ספר על ביקורת שקיבלת. מה הסיטואציה? איך הגבת? איך השפיעה?'},{c:'bio',t:'רקע',q:'היכן התנדבת ולמה? מה פחות אהבת? איך התמודדת?'},{c:'bio',t:'מוטיבציה',q:'מה מושך אותך ברפואה? דוגמאות קונקרטיות.'},{c:'bio',t:'אירועי עבר',q:'תאר מקרה שבו השפלת מישהו. מה עשית? מה למדת?'},{c:'vid',t:'צפת 2026',q:'תאר תקופה של רגשות שליליים. מה עבר עליך ואיך התמודדת?'},{c:'vid',t:'צפת 2026',q:'מישהו הגיב בחוסר פרופורציה. מה עשית ומה למדת?'},{c:'vid',t:'צפת 2026',q:'מה מושך אותך ברפואה? דבר למצלמה, 1-2 דקות.'},{c:'sit',t:'תפקידים',q:'אתה רופא. מטופל בן 55 לבד, ממצא חשוד. הוא בוכה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל כועס חיכה 3 שעות. צועק עליך. מה תעשה?'},{c:'sit',t:'תפקידים',q:'אחות בכירה לא מבצעת הוראה. אומרת: אני 20 שנה פה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל 70 מסרב לאינסולין. אומר: לא צריך כימיקלים. מה תעשה?'},{c:'sit',t:'תפקידים',q:'משפחה מבקשת לא לספר למטופל צלול בן 70. הוא שואל. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'משפחת מטופל סופני: אל תספר לו, זה יהרוג אותו. מה הערכים? מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'הנשמה אחת. ילד 8 ואישה 45 אם ל-3. איך תחליט?'},{c:'dil',t:'שיקול דעת',q:'מטופל 17 בסמים, מבקש סודיות. ההורים שואלים. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'רופא בכיר טועה במינון. אומר: אל תתערב. מה עכשיו?'},{c:'dil',t:'שיקול דעת',q:'מטופלת מבקשת הליך מותר בחוק שסותר ערכיך. מה תעשה?'}];
+const CN={bio:'ביוגרפי',vid:'וידאו',sit:'סיטואציה',dil:'דילמה'};
+const CC={bio:'#c2410c',vid:'#7c3aed',sit:'#0891b2',dil:'#b45309'};
+const CBG={bio:'#fff7ed',vid:'#f5f3ff',sit:'#ecfeff',dil:'#fffbeb'};
+function sC(s){return s>=80?'#16a34a':s>=60?'#ca8a04':'#dc2626'}
+function pj(t){try{return JSON.parse(t.replace(/```json|```/g,'').trim())}catch(e){return null}}
+function fmt(s){const m=Math.floor(s/60),c=s%60;return(m<10?'0':'')+m+':'+(c<10?'0':'')+c}
+
+function Bar({label,score,max,note}){const p=Math.round((score/max)*100),c=sC(p);return(<div style={{marginBottom:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}}><span>{label}</span><span style={{color:c}}>{score}/{max}</span></div><div style={{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}}><div style={{height:'100%',width:p+'%',background:c,borderRadius:3,transition:'width .6s'}}/></div>{note&&<div style={{fontSize:11,color:'#64748b',marginTop:3,lineHeight:1.5}}>{note}</div>}</div>)}
+function RC({data,name}){if(!data)return <div className="p-6 bg-white rounded-2xl border-2 border-dashed text-center text-slate-300 font-bold">{name} - לא זמין</div>;const sc=data.total_score,c=sC(sc);return(<div className="bg-white p-5 rounded-2xl border shadow-sm fi" style={{borderTopColor:c,borderTopWidth:3}}><div className="flex justify-between items-center border-b pb-3 mb-3"><div><div className="text-3xl font-black" style={{color:c}}>{sc}<span className="text-sm font-normal text-slate-400"> / 100</span></div><div className="text-sm font-bold" style={{color:c}}>{data.grade_label}</div></div><div className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">{name}</div></div><p className="text-sm italic text-slate-600 mb-4">"{data.one_line}"</p><Bar label="מסגרת טכנית" score={data.sections?.technical?.score||0} max={20} note={data.sections?.technical?.notes}/><Bar label="נרטיב STAR" score={data.sections?.narrative?.score||0} max={30} note={data.sections?.narrative?.notes}/><Bar label="HEXACO" score={data.sections?.personality?.score||0} max={50} note={data.sections?.personality?.notes}/>{data.personality_profile&&<div className="mt-4 pt-3 border-t"><div className="text-xs font-bold text-slate-500 mb-2">פירוט HEXACO</div><Bar label="כנות וענווה" score={data.personality_profile.honesty_humility?.score||0} max={15} note={data.personality_profile.honesty_humility?.note}/><Bar label="רפלקציה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/><Bar label="אמפתיה" score={data.personality_profile.empathy?.score||0} max={10} note={data.personality_profile.empathy?.note}/><Bar label="חוסן" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/></div>}{data.red_flags&&data.red_flags.length>0&&<div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div className="text-xs font-bold text-red-700 mb-1">&#128681; דגלים אדומים</div>{data.red_flags.map((f,i)=><div key={i} className="text-xs text-red-600 mt-1">- {f}</div>)}</div>}{data.strengths&&data.strengths.length>0&&<div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div className="text-xs font-bold text-green-700 mb-1">&#10003; חוזקות</div>{data.strengths.map((s,i)=><div key={i} className="text-xs text-green-600 mt-1">- {s}</div>)}</div>}{data.improvements&&data.improvements.length>0&&<div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div className="text-xs font-bold text-blue-700 mb-1">&#128204; לשפר</div>{data.improvements.map((m,i)=><div key={i} className="text-xs text-blue-600 mt-1">{(i+1)+'. '+m}</div>)}</div>}{data.rewrite_suggestion&&<div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div className="text-xs font-bold text-orange-800 mb-1">&#9997; הצעת ניסוח</div><p className="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}</div>)}
 
 function App(){
-    const [view, setView] = useState('home');
-    const [keys, setKeys] = useState(null);
-    const [qText, setQText] = useState('');
-    const [text, setText] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [results, setResults] = useState(null);
-    const [uni, setUni] = useState('tzfat');
-    
-    // Chat & Martin State
-    const [chat, setChat] = useState([]);
-    const [mLd, setMLd] = useState(false);
-    const [isMartinRec, setIsMartinRec] = useState(false);
-    const [martinFeedback, setMartinFeedback] = useState(null);
-    
-    // Media Recorder Refs
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
-    const currentAudioRef = useRef(null);
-    const ceRef = useRef(null);
+    const [view,setView]=useState('home');const [keys,setKeys]=useState(null);const [db,setDb]=useState(null);const [uni,setUni]=useState('tzfat');
+    const [qIdx,setQIdx]=useState(null);const [text,setText]=useState('');const [loading,setLoading]=useState(false);const [results,setResults]=useState(null);const [tab,setTab]=useState('gemini');
+    const [chat,setChat]=useState([]);const [mLd,setMLd]=useState(false);const [isMartinRec,setIsMartinRec]=useState(false);const [martinFB,setMartinFB]=useState(null);
+    const mRecRef=useRef(null);const aChRef=useRef([]);const curARef=useRef(null);const ceRef=useRef(null);
+    const [isRec,setIsRec]=useState(false);const [recO,setRecO]=useState(null);
+    const [timer,setTimer]=useState(0);const [tOn,setTOn]=useState(false);const [tMode,setTMode]=useState('up');
+    const [cQs,setCQs]=useState([]);const [showAQ,setShowAQ]=useState(false);const [nq,setNq]=useState({c:'bio',t:'',q:''});
+    const [hist,setHist]=useState([]);
+    const allQ=DQ.concat(cQs);const uI=UNIS[uni];
 
-    // Timer States
-    const [timer, setTimer] = useState(180);
-    const [tOn, setTOn] = useState(false);
+    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});const f=firebase.firestore();setDb(f);f.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)});f.collection('evaluations').orderBy('timestamp','desc').limit(10).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)})}catch(e){}}});},[]);
+    useEffect(()=>{if(!tOn)return;const iv=setInterval(()=>setTimer(t=>{if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1}),1000);return()=>clearInterval(iv)},[tOn,tMode]);
+    useEffect(()=>{if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
+    const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
 
-    useEffect(() => { fetch('/api/keys').then(r=>r.json()).then(d => setKeys(d)); }, []);
+    const togRec=()=>{if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('השתמש בכרום.');return}const r=new SR();r.lang='he-IL';r.continuous=true;r.onresult=e=>{let f='';for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';if(f)setText(p=>p+' '+f)};r.onerror=()=>{setIsRec(false);setRecO(null)};r.onend=()=>{setIsRec(false);setRecO(null)};r.start();setIsRec(true);setRecO(r)};
 
-    useEffect(() => {
-        let iv;
-        if(tOn && timer > 0) iv = setInterval(() => setTimer(t => t - 1), 1000);
-        else if(timer === 0) setTOn(false);
-        return () => clearInterval(iv);
-    }, [tOn, timer]);
+    const togMartinRec=async()=>{if(isMartinRec&&mRecRef.current){mRecRef.current.stop();setIsMartinRec(false);return}if(curARef.current){curARef.current.pause();curARef.current=null}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream);aChRef.current=[];mr.ondataavailable=e=>{if(e.data.size>0)aChRef.current.push(e.data)};mr.onstop=async()=>{const blob=new Blob(aChRef.current,{type:'audio/webm'});stream.getTracks().forEach(t=>t.stop());const reader=new FileReader();reader.readAsDataURL(blob);reader.onloadend=async()=>{await sendAudio(reader.result.split(',')[1])}};mRecRef.current=mr;mr.start();setIsMartinRec(true)}catch(e){alert('לא ניתן לגשת למיקרופון.')}};
 
-    useEffect(() => { if(ceRef.current) ceRef.current.scrollIntoView({behavior:'smooth'}); }, [chat]);
+    const sendAudio=async(b64)=>{setMLd(true);try{const res=await fetch('/api/martin-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audioBase64:b64,chatHistory:chat,uni:UNIS[uni].name})});const d=await res.json();if(d.error){alert(d.error);return}setChat(p=>[...p,{role:'user',text:d.userText},{role:'martin',text:d.martinText}]);if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
 
-    const pickQ = () => setQText(DEFAULT_QS[Math.floor(Math.random() * DEFAULT_QS.length)]);
+    const endInterview=async()=>{if(chat.length<2){alert('קצר מדי.');return}setMLd(true);try{const tr=chat.map(m=>(m.role==='martin'?'מראיין':'מועמד')+': '+m.text).join('\n');const res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:tr,system:COMMITTEE})});const d=await res.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const p=pj(t);if(p)setMartinFB(p);else alert('שגיאה בפענוח.')}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
 
-    // --- Text Recording (For Text Practice) ---
-    const [isRec, setIsRec] = useState(false);
-    const [recO, setRecO] = useState(null);
-    const togRec = () => {
-        if(isRec && recO) { recO.stop(); setIsRec(false); setRecO(null); return; }
-        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if(!SR) { alert('השתמש בדפדפן כרום.'); return; }
-        const r = new SR(); r.lang = 'he-IL'; r.continuous = true;
-        r.onresult = (e) => {
-            let f = ''; for(let i=e.resultIndex; i<e.results.length; i++) if(e.results[i].isFinal) f += e.results[i][0].transcript + ' ';
-            if(f) setText(p => p + ' ' + f);
-        };
-        r.onerror = () => { setIsRec(false); setRecO(null); };
-        r.onend = () => { setIsRec(false); setRecO(null); };
-        r.start(); setIsRec(true); setRecO(r);
-    };
+    const analyze=async()=>{if(text.length<20){alert('כתוב תשובה מלאה.');return}setLoading(true);setResults(null);const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nLimit: '+uI.limit+'\nTraits: '+uI.traits+'\n'+(qIdx!==null?'Question: '+allQ[qIdx].q+'\n':'')+'\nAnswer:\n'+text;if(db){try{await db.collection('evaluations').add({content:text.substring(0,200),uni,question:qIdx!==null?allQ[qIdx].q:'',timestamp:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}}try{const pr=[];if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'g',d})).catch(()=>({s:'g',d:null})));if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'c',d})).catch(()=>({s:'c',d:null})));if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(r=>r.json()).then(d=>({s:'o',d})).catch(()=>({s:'o',d:null})));const raw=await Promise.allSettled(pr);const P={gemini:null,claude:null,gpt:null};raw.forEach(r=>{if(r.status!=='fulfilled'||!r.value.d)return;const v=r.value;try{if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'');if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'')}catch(e){}});setResults(P);if(P.gemini)setTab('gemini');else if(P.claude)setTab('claude');else if(P.gpt)setTab('gpt')}catch(e){alert('שגיאה.')}finally{setLoading(false)}};
 
-    // --- Audio Recording (For Martin) ---
-    const toggleMartinAudioRec = async () => {
-        if (isMartinRec && mediaRecorderRef.current) {
-            mediaRecorderRef.current.stop();
-            setIsMartinRec(false);
-            return;
-        }
-        
-        // Stop any currently playing Martin audio
-        if (currentAudioRef.current) {
-            currentAudioRef.current.pause();
-            currentAudioRef.current = null;
-        }
+    const addCQ=()=>{if(!nq.q.trim())return;const n={c:nq.c,t:nq.t||'מותאם',q:nq.q.trim(),custom:true};setCQs(p=>[...p,n]);if(db)db.collection('customQuestions').add({...n,created:firebase.firestore.FieldValue.serverTimestamp()});setNq({c:'bio',t:'',q:''});setShowAQ(false)};
+    const delCQ=i=>{const q=cQs[i];setCQs(p=>p.filter((_,j)=>j!==i));if(db&&q.id)db.collection('customQuestions').doc(q.id).delete()};
 
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mediaRecorder = new MediaRecorder(stream);
-            audioChunksRef.current = [];
-            
-            mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-            
-            mediaRecorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                stream.getTracks().forEach(track => track.stop());
-                
-                const reader = new FileReader();
-                reader.readAsDataURL(audioBlob);
-                reader.onloadend = async () => {
-                    const base64Audio = reader.result.split(',')[1];
-                    await sendAudioToMartin(base64Audio);
-                };
-            };
-            
-            mediaRecorderRef.current = mediaRecorder;
-            mediaRecorder.start();
-            setIsMartinRec(true);
-        } catch (e) {
-            alert("לא ניתן לגשת למיקרופון. ודא שאישרת הרשאות.");
-        }
-    };
+    if(!keys)return <div className="flex flex-col items-center justify-center min-h-screen gap-3"><span className="ld" style={{width:32,height:32}}></span><div className="text-slate-400 font-bold text-sm">מתחבר...</div></div>;
 
-    const sendAudioToMartin = async (base64Audio) => {
-        setMLd(true);
-        try {
-            const res = await fetch('/api/martin-voice', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ audioBase64: base64Audio, chatHistory: chat, uni: UNIS[uni].name })
-            });
-            const data = await res.json();
-            
-            if(data.error) { alert(data.error); return; }
+    return(<div className="min-h-screen flex flex-col">
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}</div></header>
+        <main className="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
 
-            // Add both sides to the chat interface
-            const newChat = [
-                ...chat, 
-                { role: 'user', text: data.userText },
-                { role: 'martin', text: data.martinText }
-            ];
-            setChat(newChat);
-
-            // Play the returned audio
-            if(data.audioBase64) {
-                const snd = new Audio("data:audio/mp3;base64," + data.audioBase64);
-                currentAudioRef.current = snd;
-                snd.play();
-            }
-        } catch(e) {
-            console.error(e);
-            alert("שגיאה בתקשורת מול מרטין.");
-        } finally {
-            setMLd(false);
-        }
-    };
-
-    // --- End Interview & Get Feedback ---
-    const endInterview = async () => {
-        if(chat.length < 2) { alert('הראיון קצר מדי לניתוח.'); return; }
-        setMLd(true);
-        try {
-            const transcript = chat.map(m => `${m.role === 'martin' ? 'מראיין' : 'מועמד'}: ${m.text}`).join('\n');
-            const res = await fetch('/api/gemini', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ prompt: transcript, system: COMMITTEE_PROMPT })
-            });
-            const data = await res.json();
-            const txt = data.candidates[0].content.parts[0].text;
-            setMartinFeedback(JSON.parse(txt.replace(/```json|```/g,'').trim()));
-        } catch(e) {
-            alert("שגיאה בהפקת הדו\"ח.");
-        } finally {
-            setMLd(false);
-        }
-    };
-
-    const analyze = async () => {
-        if(text.length < 20) { alert('כתוב תשובה מלאה.'); return; }
-        setLoading(true); setResults(null);
-        try {
-            const prompt = `Institution: ${UNIS[uni].name}\nQuestion: ${qText || 'שאלה פתוחה'}\nAnswer:\n${text}`;
-            const res = await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt,system:RUBRIC})});
-            const data = await res.json();
-            const txt = data.candidates[0].content.parts[0].text;
-            setResults({ gemini: JSON.parse(txt.replace(/```json|```/g,'').trim()) });
-        } catch(e) { alert('שגיאה בניתוח.'); } finally { setLoading(false); }
-    };
-
-    const RC = ({data, name}) => {
-        if(!data) return null;
-        return(
-            <div className="bg-white p-5 rounded-2xl border mb-4 fi shadow-sm">
-                <div className="flex justify-between mb-3 border-b pb-2">
-                    <div className="text-2xl font-black text-orange-800">{data.total_score}/100</div>
-                    <div className="text-xs font-bold text-slate-400">{name}</div>
-                </div>
-                <p className="text-sm italic mb-4">"{data.one_line}"</p>
-                <Bar label="מסגרת טכנית" score={data.sections?.technical?.score||0} max={20}/>
-                <Bar label="מבנה ומסרים" score={data.sections?.narrative?.score||0} max={30}/>
-                <Bar label="HEXACO - אישיות" score={data.sections?.personality?.score||0} max={50}/>
-                <div className="mt-3 p-3 bg-orange-50 rounded-lg text-xs leading-relaxed text-orange-800"><b>משוב ועדת קבלה:</b> {data.rewrite_suggestion}</div>
+        {view==='home'&&<div className="max-w-4xl mx-auto mt-6 fi">
+            <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Gemini 3.1 Pro &middot; Claude Opus 4.6 &middot; GPT-4o</p></div>
+            <div className="grid md:grid-cols-3 gap-5 mb-8">
+                <button onClick={()=>{setView('multi');setText('');setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9997;&#65039;</div><h3 className="text-lg font-bold mb-1">תרגול כתוב</h3><p className="text-xs text-slate-500">ניתוח משולש + HEXACO מלא</p></button>
+                <button onClick={()=>{setChat([]);setMartinFB(null);setView('martin')}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (מרטין)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
+                <button onClick={()=>{setView('timed');setText('');setTimer(0);setTOn(false);setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9201;</div><h3 className="text-lg font-bold mb-1">על השעון</h3><p className="text-xs text-slate-500">כתיבה + הקלטה בלחץ זמן</p></button>
             </div>
-        );
-    };
+            <div className="mb-8"><h3 className="text-lg font-bold text-slate-800 mb-3">&#127979; מוסדות</h3><div className="grid md:grid-cols-2 gap-3">{Object.entries(UNIS).map(([k,u])=><div key={k} className={'bg-white p-4 rounded-2xl border shadow-sm cursor-pointer transition-all '+(uni===k?'border-orange-500 ring-2 ring-orange-100':'')} onClick={()=>setUni(k)}><div className="flex justify-between mb-1"><h4 className="font-bold text-slate-800">{u.name}</h4><span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">{u.limit}</span></div><p className="text-xs text-slate-600 mb-1">{u.desc}</p><p className="text-xs text-slate-500"><b>פורמט:</b> {u.format}</p><p className="text-xs text-slate-500"><b>תכונות:</b> {u.traits}</p><p className="text-xs text-orange-700 mt-1 font-bold">&#128161; {u.tip}</p></div>)}</div></div>
+            <div className="mb-8"><div className="flex justify-between items-center mb-3"><h3 className="text-lg font-bold text-slate-800">&#128218; שאלות ({allQ.length})</h3><button onClick={()=>setShowAQ(!showAQ)} className="text-xs font-bold text-orange-700 bg-orange-50 px-4 py-2 rounded-full">{showAQ?'ביטול':'+ הוסף'}</button></div>
+                {showAQ&&<div className="bg-white p-4 rounded-2xl border border-orange-200 mb-4 fi"><div className="flex gap-3 mb-3"><select value={nq.c} onChange={e=>setNq({...nq,c:e.target.value})} className="bg-slate-100 border rounded-lg px-3 py-2 text-sm font-bold">{Object.entries(CN).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><input value={nq.t} onChange={e=>setNq({...nq,t:e.target.value})} placeholder="תגית" className="flex-1 bg-slate-100 border rounded-lg px-3 py-2 text-sm"/></div><textarea value={nq.q} onChange={e=>setNq({...nq,q:e.target.value})} placeholder="השאלה..." className="w-full bg-slate-100 border rounded-lg px-3 py-2 text-sm min-h-[60px] resize-none mb-3"/><button onClick={addCQ} disabled={!nq.q.trim()} className="bg-orange-800 text-white font-bold text-sm px-6 py-2 rounded-lg disabled:opacity-40">שמור</button></div>}
+                <div className="space-y-2 max-h-[300px] overflow-y-auto sc">{allQ.map((q,i)=><div key={i} className="bg-white p-3 rounded-xl border flex items-start gap-3"><span className="px-2 py-0.5 rounded text-xs font-bold text-white shrink-0 mt-0.5" style={{background:CC[q.c]}}>{CN[q.c]}</span><div className="flex-1">{q.t&&<div className="text-xs text-slate-400 font-bold">{q.t}</div>}<p className="text-sm text-slate-700">{q.q}</p></div><div className="flex gap-1 shrink-0"><button onClick={()=>{setQIdx(i);setView('multi');setText('');setResults(null)}} className="text-xs text-orange-600 font-bold bg-orange-50 px-2 py-1 rounded">תרגל</button>{q.custom&&<button onClick={()=>delCQ(i-DQ.length)} className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">x</button>}</div></div>)}</div>
+            </div>
+            {hist.length>0&&<div className="mb-8"><h3 className="text-lg font-bold text-slate-800 mb-3">&#128200; היסטוריה</h3><div className="space-y-2">{hist.slice(0,5).map((h,i)=><div key={i} className="bg-white p-3 rounded-xl border flex justify-between"><div><div className="text-sm font-bold">{UNIS[h.uni]?.name||h.uni}</div><div className="text-xs text-slate-400">{h.content?.substring(0,50)+'...'}</div></div><div className="text-xs text-slate-400">{h.timestamp?.toDate?.()?.toLocaleDateString('he-IL')||''}</div></div>)}</div></div>}
+        </div>}
 
-    if(!keys) return <div className="flex flex-col items-center justify-center min-h-screen gap-3"><span className="ld"></span><div className="text-slate-400 font-bold text-sm">מתחבר לכספת...</div></div>;
+        {(view==='multi'||view==='timed')&&<div className="flex flex-col lg:flex-row gap-6 fi" style={{minHeight:'calc(100vh-140px)'}}>
+            <div className="w-full lg:w-1/2 flex flex-col gap-4">
+                {view==='timed'&&<div className="bg-slate-800 text-white p-5 rounded-2xl flex justify-between items-center shadow-lg"><div><div className="text-xs text-slate-400 font-bold mb-1">{tMode==='down'?'נותר':'עבר'}</div><div className={'text-3xl font-mono font-black '+(tMode==='down'&&timer<30?'text-red-400':'')}>{fmt(timer)}</div></div><div className="flex gap-2 flex-wrap">{!tOn?<Fragment><button onClick={()=>{setTMode('up');setTimer(0);setTOn(true)}} className="bg-orange-600 px-4 py-2 rounded-xl text-sm font-bold">ספירה</button><button onClick={()=>{setTMode('down');setTimer(120);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">2 דק</button><button onClick={()=>{setTMode('down');setTimer(300);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">5 דק</button><button onClick={()=>{setTMode('down');setTimer(600);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">10 דק</button></Fragment>:<Fragment><button onClick={()=>setTOn(false)} className="bg-yellow-600 px-4 py-2 rounded-xl text-sm font-bold">עצור</button><button onClick={()=>{setTOn(false);setTimer(0)}} className="bg-red-600 px-4 py-2 rounded-xl text-sm font-bold">אפס</button></Fragment>}</div></div>}
+                <div className="bg-slate-50 border rounded-xl p-3 flex justify-between text-xs"><span className="font-bold text-slate-600">{uI.name}</span><span className="text-slate-400">{uI.format}</span></div>
+                {qIdx!==null&&<div className="border rounded-2xl p-4 flex items-start gap-3" style={{background:CBG[allQ[qIdx].c],borderColor:CC[allQ[qIdx].c]}}><span className="px-2 py-0.5 rounded text-xs font-bold text-white shrink-0" style={{background:CC[allQ[qIdx].c]}}>{CN[allQ[qIdx].c]}</span><p className="text-sm flex-1" style={{color:CC[allQ[qIdx].c]}}>{allQ[qIdx].q}</p><button onClick={pickQ} className="text-xs shrink-0 opacity-60 hover:opacity-100">&#8635;</button></div>}
+                <div className="flex-1 flex flex-col bg-white rounded-2xl border shadow-sm overflow-hidden"><div className="px-4 py-3 border-b bg-slate-50 flex justify-between"><span className="text-xs font-bold text-slate-400">כתיבה / תמלול</span><span className={'text-xs font-bold '+(text.length>uI.limit?'text-red-500':'text-slate-400')}>{text.length}/{uI.limit}{text.length>uI.limit&&' ⚠️'}</span></div><textarea className="flex-1 w-full p-5 outline-none text-base leading-relaxed resize-none sc" style={{minHeight:220}} placeholder="הקלד או הדבק..." value={text} onChange={e=>setText(e.target.value)}/><div className="px-4 py-3 bg-slate-50 border-t flex gap-3"><button onClick={togRec} className={'w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-lg '+(isRec?'bg-red-500 text-white rp':'bg-slate-200 hover:bg-slate-300')}>&#127897;</button><button onClick={analyze} disabled={loading} className={'flex-1 py-3 rounded-2xl font-bold text-white '+(loading?'bg-slate-400':'bg-orange-800 hover:bg-orange-900')}>{loading?<span className="flex items-center justify-center gap-2"><span className="ld"></span> בודק...</span>:'&#128203; שלח לניתוח'}</button></div></div>
+            </div>
+            <div className="w-full lg:w-1/2 overflow-y-auto sc pb-10">
+                {!results&&!loading&&<div className="h-48 flex flex-col items-center justify-center text-slate-300"><div className="text-5xl mb-3">&#128202;</div><div className="font-bold">הניתוח יופיע כאן</div></div>}
+                {results&&<div className="space-y-4 fi"><div className="flex lg:hidden p-1 bg-slate-200 rounded-xl gap-1 mb-2">{['gemini','claude','gpt'].map(m=><button key={m} onClick={()=>setTab(m)} className={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='gemini'?'Gemini':m==='claude'?'Opus 4.6':'GPT-4o'}</button>)}</div><div className={'lg:block '+(tab==='gemini'?'block':'hidden')}><RC data={results.gemini} name="Gemini 3.1 Pro"/></div><div className={'lg:block mt-4 '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Opus 4.6"/></div><div className={'lg:block mt-4 '+(tab==='gpt'?'block':'hidden')}><RC data={results.gpt} name="GPT-4o"/></div>{(results.gemini||results.claude||results.gpt)&&<div className="bg-slate-800 text-white p-5 rounded-2xl text-center mt-4"><div className="text-xs text-slate-400 mb-1">ממוצע</div><div className="text-4xl font-black">{Math.round([results.gemini?.total_score,results.claude?.total_score,results.gpt?.total_score].filter(Boolean).reduce((a,b)=>a+b,0)/([results.gemini?.total_score,results.claude?.total_score,results.gpt?.total_score].filter(Boolean).length||1))}</div></div>}</div>}
+            </div>
+        </div>}
 
-    return(
-        <div className="min-h-screen flex flex-col">
-            <header className="bg-white border-b px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-                <h1 className="text-xl font-black text-slate-800 cursor-pointer" onClick={() => {setView('home'); setTOn(false);}}>Med-Test <span className="text-orange-700">Pro</span></h1>
-                {view !== 'home' && <select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border-none text-xs font-bold py-2 px-4 rounded-full">{Object.entries(UNIS).map(e=><option key={e[0]} value={e[0]}>{e[1].name}</option>)}</select>}
-            </header>
+        {view==='martin'&&<div className="max-w-2xl mx-auto flex flex-col bg-white border-2 rounded-3xl overflow-hidden shadow-xl fi" style={{height:'calc(100vh - 140px)'}}>
+            <div className="bg-orange-50 p-4 border-b font-bold text-orange-900 flex justify-between items-center"><span>&#128104;&#8205;&#9877;&#65039; ראיון קולי</span><span className="text-xs bg-orange-200 px-3 py-1 rounded-full">{uI.name}</span></div>
+            {martinFB?(<div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc"><h2 className="text-xl font-black mb-4 text-center">&#128202; דו"ח ועדת קבלה</h2><RC data={martinFB} name="ועדת קבלה"/><button onClick={()=>{setChat([]);setMartinFB(null)}} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">ראיון חדש</button></div>):(
+            <Fragment>
+                <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 sc">
+                    {chat.length===0&&<div className="text-center text-slate-400 mt-10 space-y-2"><div className="text-4xl">&#127897;</div><div className="font-bold">לחץ על המיקרופון</div><div className="text-xs">הצג את עצמך. מרטין ישאל שאלות.</div></div>}
+                    {chat.map((m,i)=><div key={i} className={'flex '+(m.role==='user'?'justify-end':'justify-start')}><div className={'max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm '+(m.role==='user'?'bg-orange-800 text-white rounded-tl-sm':'bg-white border rounded-tr-sm')}>{m.text}</div></div>)}
+                    {mLd&&<div className="flex justify-start"><div className="bg-white border p-4 rounded-2xl rounded-tr-sm flex gap-2 items-center"><span className="ld"></span><span className="text-xs text-slate-400">מעבד...</span></div></div>}
+                    <div ref={ceRef}/>
+                </div>
+                <div className="p-4 border-t flex gap-2 flex-col">
+                    <button onClick={togMartinRec} disabled={mLd} className={'flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all '+(isMartinRec?'bg-red-500 text-white rp':'bg-orange-800 text-white hover:bg-orange-900')+' disabled:opacity-50'}>{isMartinRec?'&#9209; עצור ושלח':'&#127897; לחץ להקלטה'}</button>
+                    {chat.length>0&&<button onClick={endInterview} disabled={mLd} className="w-full py-2 text-sm font-bold text-orange-800 bg-orange-50 rounded-xl hover:bg-orange-100">סיים וקבל משוב ועדה</button>}
+                </div>
+            </Fragment>)}
+        </div>}
 
-            <main className="flex-1 p-6 max-w-6xl mx-auto w-full">
-                {view === 'home' ? (
-                    <div className="grid md:grid-cols-2 gap-8 mt-12">
-                        <button onClick={() => {setView('multi'); setText(''); setQText(''); setResults(null); pickQ();}} className="bg-white p-12 rounded-3xl border-2 hover:border-orange-500 transition-all text-right shadow-sm group">
-                            <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">✍️</div>
-                            <h3 className="text-xl font-bold">תרגול כתוב משולב</h3>
-                            <p className="text-sm text-slate-500 mt-2">פידבק טקסטואלי מלא</p>
-                        </button>
-                        <button onClick={() => {setChat([]); setMartinFeedback(null); setView('martin');}} className="bg-white p-12 rounded-3xl border-2 hover:border-orange-500 transition-all text-right shadow-sm group">
-                            <div className="text-4xl mb-4 group-hover:scale-110 transition-transform">🎙️</div>
-                            <h3 className="text-xl font-bold">ראיון חי מול מרטין</h3>
-                            <p className="text-sm text-slate-500 mt-2">סימולטור קולי מלא (STT + TTS)</p>
-                        </button>
-                    </div>
-                ) : view === 'multi' ? (
-                    <div className="flex flex-col lg:flex-row gap-8">
-                        <div className="flex-1 flex flex-col gap-4">
-                            <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex flex-col gap-2">
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs font-bold text-orange-900">השאלה (הקלד או בחר):</span>
-                                    <button onClick={pickQ} className="text-xs font-bold text-orange-700 bg-white px-3 py-1 rounded-full border border-orange-200">🎲 אקראית</button>
-                                </div>
-                                <textarea className="w-full bg-transparent border-none outline-none text-sm text-slate-800 resize-none" value={qText} onChange={e=>setQText(e.target.value)} rows="2"></textarea>
-                            </div>
-                            <textarea className="flex-1 min-h-[250px] p-6 border-2 rounded-3xl outline-none resize-none text-lg sc" placeholder="התשובה שלך..." value={text} onChange={e=>setText(e.target.value)}></textarea>
-                            <div className="flex gap-2">
-                                <button onClick={togRec} className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl shrink-0 ${isRec ? 'bg-red-500 text-white rp' : 'bg-slate-200'}`}>🎤</button>
-                                <button onClick={analyze} disabled={loading} className="flex-1 bg-orange-800 text-white font-black py-4 rounded-2xl shadow-lg disabled:opacity-50">{loading ? <span className="ld"></span> : 'שלח לניתוח'}</button>
-                            </div>
-                        </div>
-                        <div className="flex-1 overflow-y-auto sc" style={{maxHeight:'80vh'}}>
-                            {results ? <RC data={results.gemini} name="משוב ועדה"/> : <div className="h-64 flex flex-col items-center justify-center text-slate-300 font-bold">התוצאות יופיעו כאן</div>}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="max-w-2xl mx-auto flex flex-col bg-white border-2 rounded-3xl overflow-hidden shadow-xl" style={{height:'80vh'}}>
-                        <div className="bg-orange-50 p-4 border-b font-bold text-orange-900 flex justify-between items-center">
-                            <span>👨‍⚕️ ראיון קולי מול מרטין</span>
-                            <span className="text-xs bg-orange-200 px-3 py-1 rounded-full">{UNIS[uni].name}</span>
-                        </div>
-                        
-                        {martinFeedback ? (
-                            <div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc">
-                                <h2 className="text-xl font-black mb-4 text-center">דו"ח ועדת קבלה מסכם</h2>
-                                <RC data={martinFeedback} name="ועדת קבלה מורחבת" />
-                                <button onClick={() => {setChat([]); setMartinFeedback(null);}} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">התחל ראיון חדש</button>
-                            </div>
-                        ) : (
-                            <Fragment>
-                                <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-slate-50 sc">
-                                    {chat.length === 0 && <div className="text-center text-slate-400 mt-10">לחץ על המיקרופון כדי להתחיל. הצג את עצמך קצרות.</div>}
-                                    {chat.map((m,i)=><div key={i} className={`flex ${m.role==='user'?'justify-end':'justify-start'}`}><div className={`max-w-[85%] p-4 rounded-2xl ${m.role==='user'?'bg-orange-800 text-white rounded-tr-none':'bg-white border rounded-tl-none text-slate-700'}`}>{m.text}</div></div>)}
-                                    {mLd && <div className="flex justify-start"><div className="bg-white border p-4 rounded-2xl rounded-tl-none flex gap-2 items-center"><span className="ld border-orange-800"></span><span className="text-xs text-slate-400">מעבד...</span></div></div>}
-                                    <div ref={ceRef}/>
-                                </div>
-                                <div className="p-4 border-t flex gap-2 flex-col">
-                                    <div className="flex gap-2">
-                                        <button onClick={toggleMartinAudioRec} disabled={mLd} className={`flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all ${isMartinRec ? 'bg-red-500 text-white rp' : 'bg-orange-800 text-white hover:bg-orange-900'} disabled:opacity-50`}>
-                                            {isMartinRec ? '⏹️ עצור הקלטה ושלח' : '🎤 לחץ להקלטה'}
-                                        </button>
-                                    </div>
-                                    {chat.length > 0 && (
-                                        <button onClick={endInterview} disabled={mLd} className="w-full py-2 text-sm font-bold text-orange-800 bg-orange-50 rounded-xl hover:bg-orange-100 transition-all">
-                                            סיים ראיון וקבל משוב ועדת קבלה
-                                        </button>
-                                    )}
-                                </div>
-                            </Fragment>
-                        )}
-                    </div>
-                )}
-            </main>
-        </div>
-    );
+        </main>
+    </div>);
 }
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
