@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { audioBase64, chatHistory, uni } = req.body;
+    const { audioBase64, chatHistory, uni, mimeType } = req.body;
     
     if (!audioBase64 || audioBase64.length < 100) {
       return res.status(400).json({ error: 'ההקלטה ריקה או קצרה מדי. דבר לפחות 3 שניות.' });
@@ -35,11 +35,13 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'מפתח Deepgram לא מוגדר בשרת.' });
     }
 
+    const contentType = mimeType || 'audio/webm';
+
     const sttRes = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he&mip_opt_out=true', {
       method: 'POST',
       headers: { 
         'Authorization': 'Token ' + process.env.DEEPGRAM_API_KEY,
-        'Content-Type': 'audio/webm'
+        'Content-Type': contentType
       },
       body: audioBuffer
     });
