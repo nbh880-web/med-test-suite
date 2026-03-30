@@ -63,7 +63,7 @@ function App(){
 
     const togRec=()=>{if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('השתמש בכרום.');return}const r=new SR();r.lang='he-IL';r.continuous=true;r.onresult=e=>{let f='';for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';if(f)setText(p=>p+' '+f)};r.onerror=()=>{setIsRec(false);setRecO(null)};r.onend=()=>{setIsRec(false);setRecO(null)};r.start();setIsRec(true);setRecO(r)};
 
-    const togMartinRec = async () => {
+   const togMartinRec = async () => {
         if (isMartinRec && mRecRef.current) {
             mRecRef.current.stop();
             setIsMartinRec(false);
@@ -72,19 +72,7 @@ function App(){
         if (curARef.current) { curARef.current.pause(); curARef.current = null }
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            // זיהוי פורמט נתמך (אייפון צריך mp4/m4a)
-            let mimeType = '';
-            const types = ['audio/webm', 'audio/mp4', 'audio/m4a', 'audio/ogg', ''];
-            for (let t of types) {
-                if (t === '' || (window.MediaRecorder && MediaRecorder.isTypeSupported(t))) {
-                    mimeType = t;
-                    break;
-                }
-            }
-            
-            const options = mimeType ? { mimeType } : {};
-            const mr = new MediaRecorder(stream, options);
+            const mr = new MediaRecorder(stream);
             aChRef.current = [];
             
             mr.ondataavailable = e => {
@@ -92,37 +80,74 @@ function App(){
             };
             
             mr.onstop = async () => {
-                const finalMime = mr.mimeType || mimeType || 'audio/mp4';
-                const blob = new Blob(aChRef.current, { type: finalMime });
+                const blob = new Blob(aChRef.current, { type: mr.mimeType || 'audio/mp4' });
                 stream.getTracks().forEach(t => t.stop());
                 
-                // בדיקת גודל מינימלית (אייפון לפעמים מוציא קבצים קטנים מדי אם יש תקלה)
-                if (blob.size < 2000) {
-                    alert('ההקלטה קצרה מדי או שלא נקלט קול. נסה שוב.');
+                if (blob.size < 1000) {
+                    alert('ההקלטה קצרה מדי. נסה שוב.');
                     return;
                 }
                 await processAudio(blob);
             };
             
             mRecRef.current = mr;
-            mr.start(500); // קריטי לאייפון: חותך את האודיו למקטעים למניעת איבוד נתונים
+            mr.start(); // מחקנו את ה-500! ככה האייפון לא משחית את הקובץ
             setIsMartinRec(true);
         } catch (e) {
-            alert('ודא שאישרת גישה למיקרופון בהגדרות הדפדפן.');
+            alert('ודא שאישרת גישה למיקרופון בהגדרות.');
         }
     };
-    
-    const processAudio=async(blob)=>{setMLd(true);try{
-        const tRes=await fetch('/api/transcribe',{method:'POST',headers:{'Content-Type':blob.type||'audio/webm'},body:blob});
-        const tData=await tRes.json();
-        if(!tRes.ok){alert('\u05E9\u05D2\u05D9\u05D0\u05D4 \u05D1\u05EA\u05DE\u05DC\u05D5\u05DC ('+ tRes.status +'): '+(tData.error||tData.details||''));setMLd(false);return}
-        if(!tData.transcript||tData.transcript.trim().length<2){alert('\u05DC\u05D0 \u05E9\u05DE\u05E2\u05EA\u05D9. \u05D0\u05D5\u05D3\u05D9\u05D5: '+blob.type+', \u05D2\u05D5\u05D3\u05DC: '+blob.size+' bytes. \u05D3\u05D1\u05E8 \u05D1\u05E7\u05D5\u05DC \u05D1\u05E8\u05D5\u05E8.');setMLd(false);return}
-        const userText=tData.transcript;setChat(p=>[...p,{role:'user',text:userText}]);
-        const mRes=await fetch('/api/martin-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userText:userText,chatHistory:[...chat,{role:'user',text:userText}],uni:UNIS[uni].name})});
-        const mData=await mRes.json();if(!mRes.ok||mData.error){alert('\u05DE\u05E8\u05D8\u05D9\u05DF: '+(mData.error||''));setMLd(false);return}
-        setChat(p=>[...p,{role:'martin',text:mData.martinText}]);
-        if(mData.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+mData.audioBase64);curARef.current=snd;snd.play()}else{speakTTS(mData.martinText)}
-    }catch(e){alert('\u05E9\u05D2\u05D9\u05D0\u05D4: '+e.message)}finally{setMLd(false)}};
+
+    const processAudio = async (blob) => {
+        setMLd(true);
+        try {
+            // המרה ל-Base64 כדי לשלוח לשרת בצורה הרמטית ובטוחה
+            const reader = new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend = async () => {
+                const base64data = reader.result.split(',')[1];
+                const mime = blob.type || 'audio/mp4';
+
+                // שלב 1: תמלול
+                const tRes = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ audioBase64: base64data, mimeType: mime })
+                });
+                
+                const tData = await tRes.json();
+                if (!tRes.ok) { alert('שגיאת Deepgram: ' + (tData.error || '')); setMLd(false); return; }
+                if (!tData.transcript || tData.transcript.trim().length < 2) { alert('לא שמעתי בבירור. נסה שוב.'); setMLd(false); return; }
+                
+                const userText = tData.transcript;
+                setChat(p => [...p, { role: 'user', text: userText }]);
+                
+                // שלב 2: מרטין מגיב
+                const mRes = await fetch('/api/martin-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userText: userText, chatHistory: [...chat, { role: 'user', text: userText }], uni: UNIS[uni].name })
+                });
+                
+                const mData = await mRes.json();
+                if (!mRes.ok || mData.error) { alert('מרטין: ' + (mData.error || '')); setMLd(false); return; }
+                
+                setChat(p => [...p, { role: 'martin', text: mData.martinText }]);
+                
+                // שלב 3: השמעת הקול
+                if (mData.audioBase64) {
+                    const snd = new Audio("data:audio/mp3;base64," + mData.audioBase64);
+                    curARef.current = snd;
+                    snd.play();
+                } else { speakTTS(mData.martinText); }
+                
+                setMLd(false);
+            };
+        } catch (e) { 
+            alert('שגיאה בתקשורת: ' + e.message); 
+            setMLd(false); 
+        }
+    };
 
     const speakHebrew=(text)=>{if('speechSynthesis' in window){window.speechSynthesis.cancel();const ut=new SpeechSynthesisUtterance(text);ut.lang='he-IL';ut.rate=1.0;window.speechSynthesis.speak(ut)}};
 
