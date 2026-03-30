@@ -5,7 +5,7 @@ export default async function handler(req, res) {
 
   var KEY = process.env.CLAUDE_API_KEY;
   if (!KEY) {
-    return res.status(500).json({ error: 'CLAUDE_API_KEY not configured in Vercel env vars' });
+    return res.status(500).json({ error: 'CLAUDE_API_KEY not configured' });
   }
 
   try {
