@@ -1,17 +1,13 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
   // תופס את המפתח בכל מקרה, בלי קשר לאיך שכתבת אותו ב-Vercel
   const apiKey = process.env.GEMINI_API_KEY || process.env.Gemini_API_KEY;
   const { prompt, system } = req.body;
-
   if (!apiKey) {
     return res.status(500).json({ error: 'Gemini API Key is missing in Vercel Environment Variables.' });
   }
-
   try {
-    // חובה להשתמש במחרוזת הזו מול ה-API של גוגל
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${apiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -20,7 +16,6 @@ export default async function handler(req, res) {
         generationConfig: { temperature: 0.3 }
       })
     });
-
     const data = await response.json();
     
     // אם גוגל החזירה שגיאה (למשל מפתח שגוי או מודל לא תקין)
