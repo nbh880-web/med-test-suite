@@ -17,9 +17,13 @@ export default async function handler(req, res) {
     const audioBuffer = Buffer.from(audioBase64, 'base64');
 
     // 1. תמלול (Deepgram Nova-2)
+    // 1. תמלול (Deepgram Nova-2)
     const sttRes = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he&mip_opt_out=true', {
       method: 'POST',
-      headers: { 'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}` },
+      headers: { 
+        'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
+        'Content-Type': 'application/octet-stream' // <--- השורה שפותרת את הבעיה באייפון!
+      },
       body: audioBuffer
     });
     const sttData = await sttRes.json();
