@@ -63,62 +63,13 @@ function App(){
 
     const togRec=()=>{if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('השתמש בכרום.');return}const r=new SR();r.lang='he-IL';r.continuous=true;r.onresult=e=>{let f='';for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';if(f)setText(p=>p+' '+f)};r.onerror=()=>{setIsRec(false);setRecO(null)};r.onend=()=>{setIsRec(false);setRecO(null)};r.start();setIsRec(true);setRecO(r)};
 
-    const togMartinRec=async()=>{
-    if(isMartinRec&&mRecRef.current){
-        mRecRef.current.stop();
-        setIsMartinRec(false);
-        return;
-    }
-    if(curARef.current){curARef.current.pause();curARef.current=null}
-    try{
-        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
-        
-        // זיהוי הפורמט הטוב ביותר שהמכשיר תומך בו
-        let mimeType = '';
-        const types = ['audio/webm', 'audio/mp4', 'audio/m4a', 'audio/ogg', ''];
-        for (let t of types) {
-            if (t === '' || (window.MediaRecorder && MediaRecorder.isTypeSupported(t))) {
-                mimeType = t; 
-                break;
-            }
-        }
-        
-        const options = mimeType ? { mimeType } : {};
-        const mr=new MediaRecorder(stream, options);
-        aChRef.current=[];
-        
-        mr.ondataavailable=e=>{
-            if(e.data && e.data.size>0) aChRef.current.push(e.data);
-        };
-        
-        mr.onstop=async()=>{
-            const finalMime = mr.mimeType || mimeType || 'audio/mp4';
-            const blob=new Blob(aChRef.current, {type: finalMime});
-            stream.getTracks().forEach(t=>t.stop());
-            
-            // בדיקה קריטית לאייפון - אם הקובץ ריק, אל תשלח לשרת
-            if(blob.size < 100) {
-                alert('ההקלטה נכשלה: לא נקלט שמע במכשיר. נסה לרענן את העמוד.');
-                setMLd(false);
-                return;
-            }
-            
-            const reader=new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend=async()=>{
-                await sendAudio(reader.result.split(',')[1]);
-            }
-        };
-        
-        mRecRef.current=mr;
-        mr.start(500); // הפתרון לאייפון - מכריח אותו לאסוף דאטה כל חצי שנייה
-        setIsMartinRec(true);
-    }catch(e){
-        alert('לא ניתן לגשת למיקרופון. ודא שאישרת הרשאות בדפדפן.');
-    }
-};
+    const togMartinRec=async()=>{if(isMartinRec&&mRecRef.current){mRecRef.current.stop();setIsMartinRec(false);return}if(curARef.current){curARef.current.pause();curARef.current=null}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const mr=new MediaRecorder(stream);aChRef.current=[];mr.ondataavailable=e=>{if(e.data.size>0)aChRef.current.push(e.data)};mr.onstop=async()=>{const blob=new Blob(aChRef.current,{type:'audio/webm'});stream.getTracks().forEach(t=>t.stop());if(blob.size<5000){alert('ההקלטה קצרה מדי. דבר לפחות 3 שניות.');return}const reader=new FileReader();reader.readAsDataURL(blob);reader.onloadend=async()=>{await sendAudio(reader.result.split(',')[1])}};mRecRef.current=mr;mr.start();setIsMartinRec(true)}catch(e){alert('לא ניתן לגשת למיקרופון. ודא שאישרת הרשאות בדפדפן.')}};
 
-    const sendAudio=async(b64)=>{setMLd(true);try{const res=await fetch('/api/martin-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audioBase64:b64,chatHistory:chat,uni:UNIS[uni].name})});const d=await res.json();if(d.error){alert(d.error);return}setChat(p=>[...p,{role:'user',text:d.userText},{role:'martin',text:d.martinText}]);if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
+    const speakHebrew=(text)=>{if('speechSynthesis' in window){window.speechSynthesis.cancel();const ut=new SpeechSynthesisUtterance(text);ut.lang='he-IL';ut.rate=1.0;window.speechSynthesis.speak(ut)}};
+
+    const startMartin=()=>{const q=allQ[Math.floor(Math.random()*allQ.length)];const opening='שלום, אני מרטין. אני מראיין היום במיוני הקבלה ל'+UNIS[uni].name+'. בוא נתחיל. '+q.q;setChat([{role:'martin',text:opening}]);setMartinFB(null);setView('martin');setTimeout(()=>speakHebrew(opening),500)};;
+
+    const sendAudio=async(b64)=>{setMLd(true);try{const res=await fetch('/api/martin-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audioBase64:b64,chatHistory:chat,uni:UNIS[uni].name})});const d=await res.json();if(d.error){alert('מרטין: '+d.error);setMLd(false);return}setChat(p=>[...p,{role:'user',text:d.userText},{role:'martin',text:d.martinText}]);if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}else{speakHebrew(d.martinText)}}catch(e){alert('שגיאה בחיבור למרטין. בדוק חיבור אינטרנט.')}finally{setMLd(false)}};
 
     const endInterview=async()=>{if(chat.length<2){alert('קצר מדי.');return}setMLd(true);try{const tr=chat.map(m=>(m.role==='martin'?'מראיין':'מועמד')+': '+m.text).join('\n');const res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:tr,system:COMMITTEE})});const d=await res.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const p=pj(t);if(p)setMartinFB(p);else alert('שגיאה בפענוח.')}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
 
@@ -137,7 +88,7 @@ function App(){
             <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Gemini 3.1 Pro &middot; Claude Opus 4.6 &middot; GPT-4o</p></div>
             <div className="grid md:grid-cols-3 gap-5 mb-8">
                 <button onClick={()=>{setView('multi');setText('');setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9997;&#65039;</div><h3 className="text-lg font-bold mb-1">תרגול כתוב</h3><p className="text-xs text-slate-500">ניתוח משולש + HEXACO מלא</p></button>
-                <button onClick={()=>{setChat([]);setMartinFB(null);setView('martin')}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (מרטין)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
+                <button onClick={startMartin} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (מרטין)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
                 <button onClick={()=>{setView('timed');setText('');setTimer(0);setTOn(false);setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9201;</div><h3 className="text-lg font-bold mb-1">על השעון</h3><p className="text-xs text-slate-500">כתיבה + הקלטה בלחץ זמן</p></button>
             </div>
             <div className="mb-8"><h3 className="text-lg font-bold text-slate-800 mb-3">&#127979; מוסדות</h3><div className="grid md:grid-cols-2 gap-3">{Object.entries(UNIS).map(([k,u])=><div key={k} className={'bg-white p-4 rounded-2xl border shadow-sm cursor-pointer transition-all '+(uni===k?'border-orange-500 ring-2 ring-orange-100':'')} onClick={()=>setUni(k)}><div className="flex justify-between mb-1"><h4 className="font-bold text-slate-800">{u.name}</h4><span className="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-full font-bold">{u.limit}</span></div><p className="text-xs text-slate-600 mb-1">{u.desc}</p><p className="text-xs text-slate-500"><b>פורמט:</b> {u.format}</p><p className="text-xs text-slate-500"><b>תכונות:</b> {u.traits}</p><p className="text-xs text-orange-700 mt-1 font-bold">&#128161; {u.tip}</p></div>)}</div></div>
@@ -163,16 +114,16 @@ function App(){
 
         {view==='martin'&&<div className="max-w-2xl mx-auto flex flex-col bg-white border-2 rounded-3xl overflow-hidden shadow-xl fi" style={{height:'calc(100vh - 140px)'}}>
             <div className="bg-orange-50 p-4 border-b font-bold text-orange-900 flex justify-between items-center"><span>&#128104;&#8205;&#9877;&#65039; ראיון קולי</span><span className="text-xs bg-orange-200 px-3 py-1 rounded-full">{uI.name}</span></div>
-            {martinFB?(<div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc"><h2 className="text-xl font-black mb-4 text-center">&#128202; דו"ח ועדת קבלה</h2><RC data={martinFB} name="ועדת קבלה"/><button onClick={()=>{setChat([]);setMartinFB(null)}} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">ראיון חדש</button></div>):(
+            {martinFB?(<div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc"><h2 className="text-xl font-black mb-4 text-center">&#128202; דו"ח ועדת קבלה</h2><RC data={martinFB} name="ועדת קבלה"/><button onClick={startMartin} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">ראיון חדש</button></div>):(
             <Fragment>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 sc">
-                    {chat.length===0&&<div className="text-center text-slate-400 mt-10 space-y-2"><div className="text-4xl">&#127897;</div><div className="font-bold">לחץ על המיקרופון</div><div className="text-xs">הצג את עצמך. מרטין ישאל שאלות.</div></div>}
+                    {chat.length===0&&<div className="text-center text-slate-400 mt-10 space-y-2"><div className="text-4xl">&#127897;</div><div className="font-bold">מרטין מתחיל...</div></div>}
                     {chat.map((m,i)=><div key={i} className={'flex '+(m.role==='user'?'justify-end':'justify-start')}><div className={'max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm '+(m.role==='user'?'bg-orange-800 text-white rounded-tl-sm':'bg-white border rounded-tr-sm')}>{m.text}</div></div>)}
                     {mLd&&<div className="flex justify-start"><div className="bg-white border p-4 rounded-2xl rounded-tr-sm flex gap-2 items-center"><span className="ld"></span><span className="text-xs text-slate-400">מעבד...</span></div></div>}
                     <div ref={ceRef}/>
                 </div>
                 <div className="p-4 border-t flex gap-2 flex-col">
-                    <button onClick={togMartinRec} disabled={mLd} className={'flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all '+(isMartinRec?'bg-red-500 text-white rp':'bg-orange-800 text-white hover:bg-orange-900')+' disabled:opacity-50'}>{isMartinRec?'⏹️ עצור ושלח':'🎙️ לחץ להקלטה'}</button>
+                    <button onClick={togMartinRec} disabled={mLd} className={'flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all '+(isMartinRec?'bg-red-500 text-white rp':'bg-orange-800 text-white hover:bg-orange-900')+' disabled:opacity-50'}>{isMartinRec?'&#9209; עצור ושלח (דבר לפחות 3 שניות)':'&#127897; לחץ, דבר, ועצור כשסיימת'}</button>
                     {chat.length>0&&<button onClick={endInterview} disabled={mLd} className="w-full py-2 text-sm font-bold text-orange-800 bg-orange-50 rounded-xl hover:bg-orange-100">סיים וקבל משוב ועדה</button>}
                 </div>
             </Fragment>)}
