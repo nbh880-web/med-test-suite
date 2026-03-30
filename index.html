@@ -63,7 +63,60 @@ function App(){
 
     const togRec=()=>{if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('השתמש בכרום.');return}const r=new SR();r.lang='he-IL';r.continuous=true;r.onresult=e=>{let f='';for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';if(f)setText(p=>p+' '+f)};r.onerror=()=>{setIsRec(false);setRecO(null)};r.onend=()=>{setIsRec(false);setRecO(null)};r.start();setIsRec(true);setRecO(r)};
 
-    const togMartinRec=async()=>{if(isMartinRec&&mRecRef.current){mRecRef.current.stop();setIsMartinRec(false);return}if(curARef.current){curARef.current.pause();curARef.current=null}try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});const options=(typeof MediaRecorder.isTypeSupported==='function'&&MediaRecorder.isTypeSupported('audio/webm'))?{mimeType:'audio/webm'}:{};const mr=new MediaRecorder(stream,options);aChRef.current=[];mr.ondataavailable=e=>{if(e.data.size>0)aChRef.current.push(e.data)};mr.onstop=async()=>{const blob=new Blob(aChRef.current,{type:mr.mimeType||'audio/mp4'});stream.getTracks().forEach(t=>t.stop());const reader=new FileReader();reader.readAsDataURL(blob);reader.onloadend=async()=>{await sendAudio(reader.result.split(',')[1])}};mRecRef.current=mr;mr.start();setIsMartinRec(true)}catch(e){alert('לא ניתן לגשת למיקרופון.')}};
+    const togMartinRec=async()=>{
+    if(isMartinRec&&mRecRef.current){
+        mRecRef.current.stop();
+        setIsMartinRec(false);
+        return;
+    }
+    if(curARef.current){curARef.current.pause();curARef.current=null}
+    try{
+        const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+        
+        // זיהוי הפורמט הטוב ביותר שהמכשיר תומך בו
+        let mimeType = '';
+        const types = ['audio/webm', 'audio/mp4', 'audio/m4a', 'audio/ogg', ''];
+        for (let t of types) {
+            if (t === '' || (window.MediaRecorder && MediaRecorder.isTypeSupported(t))) {
+                mimeType = t; 
+                break;
+            }
+        }
+        
+        const options = mimeType ? { mimeType } : {};
+        const mr=new MediaRecorder(stream, options);
+        aChRef.current=[];
+        
+        mr.ondataavailable=e=>{
+            if(e.data && e.data.size>0) aChRef.current.push(e.data);
+        };
+        
+        mr.onstop=async()=>{
+            const finalMime = mr.mimeType || mimeType || 'audio/mp4';
+            const blob=new Blob(aChRef.current, {type: finalMime});
+            stream.getTracks().forEach(t=>t.stop());
+            
+            // בדיקה קריטית לאייפון - אם הקובץ ריק, אל תשלח לשרת
+            if(blob.size < 100) {
+                alert('ההקלטה נכשלה: לא נקלט שמע במכשיר. נסה לרענן את העמוד.');
+                setMLd(false);
+                return;
+            }
+            
+            const reader=new FileReader();
+            reader.readAsDataURL(blob);
+            reader.onloadend=async()=>{
+                await sendAudio(reader.result.split(',')[1]);
+            }
+        };
+        
+        mRecRef.current=mr;
+        mr.start(500); // הפתרון לאייפון - מכריח אותו לאסוף דאטה כל חצי שנייה
+        setIsMartinRec(true);
+    }catch(e){
+        alert('לא ניתן לגשת למיקרופון. ודא שאישרת הרשאות בדפדפן.');
+    }
+};
 
     const sendAudio=async(b64)=>{setMLd(true);try{const res=await fetch('/api/martin-voice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audioBase64:b64,chatHistory:chat,uni:UNIS[uni].name})});const d=await res.json();if(d.error){alert(d.error);return}setChat(p=>[...p,{role:'user',text:d.userText},{role:'martin',text:d.martinText}]);if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
 
