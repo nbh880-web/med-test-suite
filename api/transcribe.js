@@ -1,5 +1,5 @@
 export const config = {
-  api: { bodyParser: { sizeLimit: '10mb' } }, // מאפשר קבלת קבצים גדולים
+  api: { bodyParser: { sizeLimit: '10mb' } },
 };
 
 export default async function handler(req, res) {
@@ -7,12 +7,15 @@ export default async function handler(req, res) {
 
   try {
     const { audioBase64, mimeType } = req.body;
-    if (!audioBase64) return res.status(400).json({ error: 'לא התקבל אודיו' });
+    
+    if (!audioBase64) {
+      return res.status(400).json({ error: 'לא התקבל קובץ מהמכשיר' });
+    }
 
-    // הופכים את הטקסט בחזרה לקובץ אודיו עבור Deepgram
     const audioBuffer = Buffer.from(audioBase64, 'base64');
 
-    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he', {
+    // התיקון: שינינו את המודל ל-nova-3 לפי הבקשה המפורשת של דיפגראם
+    const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-3&language=he', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
