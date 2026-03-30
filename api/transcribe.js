@@ -12,14 +12,23 @@ export default async function handler(req, res) {
     }
     const audioBuffer = Buffer.concat(data);
 
-    // אנחנו לוקחים את הפורמט המדויק שהמכשיר (אייפון/מחשב) יצר
-    const clientContentType = req.headers['content-type'] || 'audio/webm';
+    // כאן הקסם: אנחנו מנקים את הפורמט שהאייפון שולח כדי שדיפגראם לא יקרוס
+    let rawContentType = req.headers['content-type'] || '';
+    let cleanContentType = 'application/octet-stream'; // ברירת מחדל
+    
+    if (rawContentType.includes('mp4') || rawContentType.includes('m4a')) {
+        cleanContentType = 'audio/mp4';
+    } else if (rawContentType.includes('webm')) {
+        cleanContentType = 'audio/webm';
+    } else if (rawContentType.includes('ogg')) {
+        cleanContentType = 'audio/ogg';
+    }
 
     const response = await fetch('https://api.deepgram.com/v1/listen?model=nova-2&language=he&mip_opt_out=true', {
       method: 'POST',
       headers: {
         'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
-        'Content-Type': clientContentType // זה מה שיסדר את שגיאה 400 באייפון!
+        'Content-Type': cleanContentType // שולחים פורמט נקי
       },
       body: audioBuffer,
     });
@@ -27,7 +36,7 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const errorData = await response.json();
       console.error('Deepgram error:', errorData);
-      return res.status(response.status).json({ error: 'Deepgram API error', details: errorData });
+      return res.status(response.status).json({ error: 'Deepgram 400', details: errorData });
     }
 
     const result = await response.json();
