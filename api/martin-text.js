@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       }
     }
 
-    // 2. מרטין (Gemini 3.1 Pro)
+    // 2. מרטין (Gemini 3.1 Pro -> fallback 2.5 Flash)
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ error: 'מפתח Gemini חסר.' });
     }
@@ -91,15 +91,28 @@ export default async function handler(req, res) {
       parts: [{ text: userText + '\n\nהוראת הלוחש: ' + whisper }]
     });
 
-    const gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=' + process.env.GEMINI_API_KEY, {
+    const gBody = JSON.stringify({
+      system_instruction: { parts: [{ text: mSys }] },
+      contents: contents,
+      generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
+    });
+
+    // Try Gemini 3.1 Pro first
+    var gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-preview:generateContent?key=' + process.env.GEMINI_API_KEY, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: mSys }] },
-        contents: contents,
-        generationConfig: { temperature: 0.7, maxOutputTokens: 200 }
-      })
+      body: gBody
     });
+
+    // Fallback to 2.5 Flash if rate limited
+    if (gRes.status === 429) {
+      console.warn('Gemini 3.1 Pro rate limited, falling back to 2.5 Flash');
+      gRes = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + process.env.GEMINI_API_KEY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: gBody
+      });
+    }
 
     if (!gRes.ok) {
       return res.status(500).json({ error: 'שגיאה ב-Gemini. קוד: ' + gRes.status });
