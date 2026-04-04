@@ -113,14 +113,19 @@ function App(){
         const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nLimit: '+uI.limit+'\nTraits: '+uI.traits+'\n'+(qText?'Question: '+qText+'\n':'')+'\nAnswer:\n'+text;
         try{
             const pr=[];
-            if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'g',d})).catch(()=>({s:'g',d:null})));
-            if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'c',d})).catch(()=>({s:'c',d:null})));
-            if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(r=>r.json()).then(d=>({s:'o',d})).catch(()=>({s:'o',d:null})));
+            if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){console.error('Gemini error:',d.error);return{s:'g',d:null,err:d.error}}return{s:'g',d}}).catch(e=>({s:'g',d:null,err:e.message})));
+            if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){console.error('Claude error:',d.error);return{s:'c',d:null,err:d.error}}return{s:'c',d}}).catch(e=>({s:'c',d:null,err:e.message})));
+            if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){return{s:'o',d:null,err:d.error?.message||d.error}}return{s:'o',d}}).catch(e=>({s:'o',d:null,err:e.message})));
             const raw=await Promise.allSettled(pr);
             const P={gemini:null,claude:null,gpt:null};
-            raw.forEach(r=>{if(r.status!=='fulfilled'||!r.value.d)return;const v=r.value;try{if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'');if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'')}catch(e){}});
+            const errors=[];
+            raw.forEach(r=>{if(r.status!=='fulfilled')return;const v=r.value;
+                if(v.err){errors.push((v.s==='g'?'Gemini':v.s==='c'?'Claude':'GPT')+': '+v.err);return}
+                if(!v.d)return;
+                try{if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'');if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'')}catch(e){}});
             setResults(P);
             if(P.gemini)setTab('gemini');else if(P.claude)setTab('claude');else if(P.gpt)setTab('gpt');
+            if(errors.length>0)alert('שגיאות:\n'+errors.join('\n'));
 
             // Save full results to Firebase
             if(db){
