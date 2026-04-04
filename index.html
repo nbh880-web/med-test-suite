@@ -43,6 +43,7 @@ function pj(t){try{return JSON.parse(t.replace(/```json|```/g,'').trim())}catch(
 function fmt(s){const m=Math.floor(s/60),c=s%60;return(m<10?'0':'')+m+':'+(c<10?'0':'')+c}
 
 function Bar({label,score,max,note}){const p=Math.round((score/max)*100),c=sC(p);return(<div style={{marginBottom:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}}><span>{label}</span><span style={{color:c}}>{score}/{max}</span></div><div style={{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}}><div style={{height:'100%',width:p+'%',background:c,borderRadius:3,transition:'width .6s'}}/></div>{note&&<div style={{fontSize:11,color:'#64748b',marginTop:3,lineHeight:1.5}}>{note}</div>}</div>)}
+
 function RC({data,name}){if(!data)return <div className="p-6 bg-white rounded-2xl border-2 border-dashed text-center text-slate-300 font-bold">{name} - לא זמין</div>;const sc=data.total_score,c=sC(sc);return(<div className="bg-white p-5 rounded-2xl border shadow-sm fi" style={{borderTopColor:c,borderTopWidth:3}}><div className="flex justify-between items-center border-b pb-3 mb-3"><div><div className="text-3xl font-black" style={{color:c}}>{sc}<span className="text-sm font-normal text-slate-400"> / 100</span></div><div className="text-sm font-bold" style={{color:c}}>{data.grade_label}</div></div><div className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">{name}</div></div><p className="text-sm italic text-slate-600 mb-4">"{data.one_line}"</p><Bar label="מסגרת טכנית" score={data.sections?.technical?.score||0} max={20} note={data.sections?.technical?.notes}/><Bar label="נרטיב STAR" score={data.sections?.narrative?.score||0} max={30} note={data.sections?.narrative?.notes}/><Bar label="HEXACO" score={data.sections?.personality?.score||0} max={50} note={data.sections?.personality?.notes}/>{data.personality_profile&&<div className="mt-4 pt-3 border-t"><div className="text-xs font-bold text-slate-500 mb-2">פירוט HEXACO</div><Bar label="כנות וענווה" score={data.personality_profile.honesty_humility?.score||0} max={15} note={data.personality_profile.honesty_humility?.note}/><Bar label="רפלקציה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/><Bar label="אמפתיה" score={data.personality_profile.empathy?.score||0} max={10} note={data.personality_profile.empathy?.note}/><Bar label="חוסן" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/></div>}{data.red_flags&&data.red_flags.length>0&&<div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div className="text-xs font-bold text-red-700 mb-1">&#128681; דגלים אדומים</div>{data.red_flags.map((f,i)=><div key={i} className="text-xs text-red-600 mt-1">- {f}</div>)}</div>}{data.strengths&&data.strengths.length>0&&<div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div className="text-xs font-bold text-green-700 mb-1">&#10003; חוזקות</div>{data.strengths.map((s,i)=><div key={i} className="text-xs text-green-600 mt-1">- {s}</div>)}</div>}{data.improvements&&data.improvements.length>0&&<div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div className="text-xs font-bold text-blue-700 mb-1">&#128204; לשפר</div>{data.improvements.map((m,i)=><div key={i} className="text-xs text-blue-600 mt-1">{(i+1)+'. '+m}</div>)}</div>}{data.rewrite_suggestion&&<div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div className="text-xs font-bold text-orange-800 mb-1">&#9997; הצעת ניסוח</div><p className="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}</div>)}
 
 function App(){
@@ -54,111 +55,99 @@ function App(){
     const [timer,setTimer]=useState(0);const [tOn,setTOn]=useState(false);const [tMode,setTMode]=useState('up');
     const [cQs,setCQs]=useState([]);const [showAQ,setShowAQ]=useState(false);const [nq,setNq]=useState({c:'bio',t:'',q:''});
     const [hist,setHist]=useState([]);
+    const [histDetail,setHistDetail]=useState(null); // for viewing past evaluations
     const allQ=DQ.concat(cQs);const uI=UNIS[uni];
 
-    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});const f=firebase.firestore();setDb(f);f.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)});f.collection('evaluations').orderBy('timestamp','desc').limit(10).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)})}catch(e){}}});},[]);
+    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});const f=firebase.firestore();setDb(f);f.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)});f.collection('evaluations').orderBy('timestamp','desc').limit(20).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)})}catch(e){}}});},[]);
     useEffect(()=>{if(!tOn)return;const iv=setInterval(()=>setTimer(t=>{if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1}),1000);return()=>clearInterval(iv)},[tOn,tMode]);
     useEffect(()=>{if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
     const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
 
     const togRec=()=>{if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('השתמש בכרום.');return}const r=new SR();r.lang='he-IL';r.continuous=true;r.onresult=e=>{let f='';for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';if(f)setText(p=>p+' '+f)};r.onerror=()=>{setIsRec(false);setRecO(null)};r.onend=()=>{setIsRec(false);setRecO(null)};r.start();setIsRec(true);setRecO(r)};
 
-   const togMartinRec = async () => {
-        if (isMartinRec && mRecRef.current) {
-            mRecRef.current.stop();
-            setIsMartinRec(false);
-            return;
-        }
-        if (curARef.current) { curARef.current.pause(); curARef.current = null }
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mr = new MediaRecorder(stream);
-            aChRef.current = [];
-            
-            mr.ondataavailable = e => {
-                if (e.data && e.data.size > 0) aChRef.current.push(e.data);
-            };
-            
-            mr.onstop = async () => {
-                const blob = new Blob(aChRef.current, { type: mr.mimeType || 'audio/mp4' });
-                stream.getTracks().forEach(t => t.stop());
-                
-                if (blob.size < 1000) {
-                    alert('ההקלטה קצרה מדי. נסה שוב.');
-                    return;
-                }
-                await processAudio(blob);
-            };
-            
-            mRecRef.current = mr;
-            mr.start(); // מחקנו את ה-500! ככה האייפון לא משחית את הקובץ
-            setIsMartinRec(true);
-        } catch (e) {
-            alert('ודא שאישרת גישה למיקרופון בהגדרות.');
-        }
+    const togMartinRec=async()=>{
+        if(isMartinRec&&mRecRef.current){mRecRef.current.stop();setIsMartinRec(false);return}
+        if(curARef.current){curARef.current.pause();curARef.current=null}
+        try{
+            const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+            const mr=new MediaRecorder(stream);aChRef.current=[];
+            mr.ondataavailable=e=>{if(e.data&&e.data.size>0)aChRef.current.push(e.data)};
+            mr.onstop=async()=>{const blob=new Blob(aChRef.current,{type:mr.mimeType||'audio/mp4'});stream.getTracks().forEach(t=>t.stop());if(blob.size<1000){alert('ההקלטה קצרה מדי.');return}await processAudio(blob)};
+            mRecRef.current=mr;mr.start();setIsMartinRec(true);
+        }catch(e){alert('ודא שאישרת גישה למיקרופון.')}
     };
 
-    const processAudio = async (blob) => {
+    const processAudio=async(blob)=>{
         setMLd(true);
-        try {
-            // המרה ל-Base64 כדי לשלוח לשרת בצורה הרמטית ובטוחה
-            const reader = new FileReader();
-            reader.readAsDataURL(blob);
-            reader.onloadend = async () => {
-                const base64data = reader.result.split(',')[1];
-                const mime = blob.type || 'audio/mp4';
-
-                // שלב 1: תמלול
-                const tRes = await fetch('/api/transcribe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ audioBase64: base64data, mimeType: mime })
-                });
-                
-                const tData = await tRes.json();
-                if (!tRes.ok) { alert('שגיאת Deepgram: ' + (tData.error || '')); setMLd(false); return; }
-                if (!tData.transcript || tData.transcript.trim().length < 2) { alert('לא שמעתי בבירור. נסה שוב.'); setMLd(false); return; }
-                
-                const userText = tData.transcript;
-                setChat(p => [...p, { role: 'user', text: userText }]);
-                
-                // שלב 2: מרטין מגיב
-                const mRes = await fetch('/api/martin-text', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userText: userText, chatHistory: [...chat, { role: 'user', text: userText }], uni: UNIS[uni].name })
-                });
-                
-                const mData = await mRes.json();
-                if (!mRes.ok || mData.error) { alert('מרטין: ' + (mData.error || '')); setMLd(false); return; }
-                
-                setChat(p => [...p, { role: 'martin', text: mData.martinText }]);
-                
-                // שלב 3: השמעת הקול
-                if (mData.audioBase64) {
-                    const snd = new Audio("data:audio/mp3;base64," + mData.audioBase64);
-                    curARef.current = snd;
-                    snd.play();
-                } else { speakTTS(mData.martinText); }
-                
+        try{
+            const reader=new FileReader();reader.readAsDataURL(blob);
+            reader.onloadend=async()=>{
+                const base64data=reader.result.split(',')[1];
+                const mime=blob.type||'audio/mp4';
+                const tRes=await fetch('/api/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audioBase64:base64data,mimeType:mime})});
+                const tData=await tRes.json();
+                if(!tRes.ok){alert('שגיאת תמלול: '+(tData.error||''));setMLd(false);return}
+                if(!tData.transcript||tData.transcript.trim().length<2){alert('לא שמעתי בבירור. דבר בקול ברור, 3 שניות.');setMLd(false);return}
+                const userText=tData.transcript;
+                setChat(p=>[...p,{role:'user',text:userText}]);
+                const mRes=await fetch('/api/martin-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userText:userText,chatHistory:[...chat,{role:'user',text:userText}],uni:UNIS[uni].name})});
+                const mData=await mRes.json();
+                if(!mRes.ok||mData.error){alert('מרטין: '+(mData.error||''));setMLd(false);return}
+                setChat(p=>[...p,{role:'martin',text:mData.martinText}]);
+                if(mData.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+mData.audioBase64);curARef.current=snd;snd.play()}else{speakTTS(mData.martinText)}
                 setMLd(false);
             };
-        } catch (e) { 
-            alert('שגיאה בתקשורת: ' + e.message); 
-            setMLd(false); 
-        }
+        }catch(e){alert('שגיאה: '+e.message);setMLd(false)}
     };
 
     const speakHebrew=(text)=>{if('speechSynthesis' in window){window.speechSynthesis.cancel();const ut=new SpeechSynthesisUtterance(text);ut.lang='he-IL';ut.rate=1.0;window.speechSynthesis.speak(ut)}};
-
     const speakTTS=async(text)=>{try{const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});const d=await r.json();if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}else{speakHebrew(text)}}catch(e){speakHebrew(text)}};
-
     const startMartin=()=>{const q=allQ[Math.floor(Math.random()*allQ.length)];const opening='\u05E9\u05DC\u05D5\u05DD, \u05D0\u05E0\u05D9 \u05DE\u05E8\u05D8\u05D9\u05DF. \u05D0\u05E0\u05D9 \u05DE\u05E8\u05D0\u05D9\u05D9\u05DF \u05D4\u05D9\u05D5\u05DD \u05D1\u05DE\u05D9\u05D5\u05E0\u05D9 \u05D4\u05E7\u05D1\u05DC\u05D4 \u05DC'+UNIS[uni].name+'. \u05D1\u05D5\u05D0 \u05E0\u05EA\u05D7\u05D9\u05DC. '+q.q;setChat([{role:'martin',text:opening}]);setMartinFB(null);setView('martin');setTimeout(()=>speakTTS(opening),500)};
-
 
     const endInterview=async()=>{if(chat.length<2){alert('קצר מדי.');return}setMLd(true);try{const tr=chat.map(m=>(m.role==='martin'?'מראיין':'מועמד')+': '+m.text).join('\n');const res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:tr,system:COMMITTEE})});const d=await res.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const p=pj(t);if(p)setMartinFB(p);else alert('שגיאה בפענוח.')}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
 
-    const analyze=async()=>{if(text.length<20){alert('כתוב תשובה מלאה.');return}setLoading(true);setResults(null);const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nLimit: '+uI.limit+'\nTraits: '+uI.traits+'\n'+(qIdx!==null?'Question: '+allQ[qIdx].q+'\n':'')+'\nAnswer:\n'+text;if(db){try{await db.collection('evaluations').add({content:text.substring(0,200),uni,question:qIdx!==null?allQ[qIdx].q:'',timestamp:firebase.firestore.FieldValue.serverTimestamp()})}catch(e){}}try{const pr=[];if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'g',d})).catch(()=>({s:'g',d:null})));if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'c',d})).catch(()=>({s:'c',d:null})));if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(r=>r.json()).then(d=>({s:'o',d})).catch(()=>({s:'o',d:null})));const raw=await Promise.allSettled(pr);const P={gemini:null,claude:null,gpt:null};raw.forEach(r=>{if(r.status!=='fulfilled'||!r.value.d)return;const v=r.value;try{if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'');if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'')}catch(e){}});setResults(P);if(P.gemini)setTab('gemini');else if(P.claude)setTab('claude');else if(P.gpt)setTab('gpt')}catch(e){alert('שגיאה.')}finally{setLoading(false)}};
+    const analyze=async()=>{
+        if(text.length<20){alert('כתוב תשובה מלאה.');return}
+        setLoading(true);setResults(null);
+        const qText=qIdx!==null?allQ[qIdx].q:'';
+        const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nLimit: '+uI.limit+'\nTraits: '+uI.traits+'\n'+(qText?'Question: '+qText+'\n':'')+'\nAnswer:\n'+text;
+        try{
+            const pr=[];
+            if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'g',d})).catch(()=>({s:'g',d:null})));
+            if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(r=>r.json()).then(d=>({s:'c',d})).catch(()=>({s:'c',d:null})));
+            if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(r=>r.json()).then(d=>({s:'o',d})).catch(()=>({s:'o',d:null})));
+            const raw=await Promise.allSettled(pr);
+            const P={gemini:null,claude:null,gpt:null};
+            raw.forEach(r=>{if(r.status!=='fulfilled'||!r.value.d)return;const v=r.value;try{if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'');if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'')}catch(e){}});
+            setResults(P);
+            if(P.gemini)setTab('gemini');else if(P.claude)setTab('claude');else if(P.gpt)setTab('gpt');
+
+            // Save full results to Firebase
+            if(db){
+                try{
+                    const scores={};
+                    if(P.gemini)scores.gemini=P.gemini.total_score;
+                    if(P.claude)scores.claude=P.claude.total_score;
+                    if(P.gpt)scores.gpt=P.gpt.total_score;
+                    const avg=Object.values(scores).length?Math.round(Object.values(scores).reduce((a,b)=>a+b,0)/Object.values(scores).length):0;
+                    await db.collection('evaluations').add({
+                        content:text,
+                        question:qText,
+                        uni:uni,
+                        scores:scores,
+                        avgScore:avg,
+                        geminiResult:P.gemini||null,
+                        claudeResult:P.claude||null,
+                        gptResult:P.gpt||null,
+                        timestamp:firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    // Refresh history
+                    const snap=await db.collection('evaluations').orderBy('timestamp','desc').limit(20).get();
+                    const h=[];snap.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h);
+                }catch(e){console.warn('Firebase save error:',e)}
+            }
+        }catch(e){alert('שגיאה.')}finally{setLoading(false)}
+    };
 
     const addCQ=()=>{if(!nq.q.trim())return;const n={c:nq.c,t:nq.t||'מותאם',q:nq.q.trim(),custom:true};setCQs(p=>[...p,n]);if(db)db.collection('customQuestions').add({...n,created:firebase.firestore.FieldValue.serverTimestamp()});setNq({c:'bio',t:'',q:''});setShowAQ(false)};
     const delCQ=i=>{const q=cQs[i];setCQs(p=>p.filter((_,j)=>j!==i));if(db&&q.id)db.collection('customQuestions').doc(q.id).delete()};
@@ -166,9 +155,30 @@ function App(){
     if(!keys)return <div className="flex flex-col items-center justify-center min-h-screen gap-3"><span className="ld" style={{width:32,height:32}}></span><div className="text-slate-400 font-bold text-sm">מתחבר...</div></div>;
 
     return(<div className="min-h-screen flex flex-col">
-        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}</div></header>
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}</div></header>
         <main className="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
 
+        {/* ===== HISTORY DETAIL VIEW ===== */}
+        {view==='histDetail'&&histDetail&&<div className="max-w-3xl mx-auto fi">
+            <button onClick={()=>{setView('home');setHistDetail(null)}} className="mb-4 text-sm font-bold text-orange-700 bg-orange-50 px-4 py-2 rounded-full">&#8592; חזרה להיסטוריה</button>
+            <div className="bg-white p-5 rounded-2xl border shadow-sm mb-4">
+                <div className="flex justify-between items-start mb-3">
+                    <div>
+                        <div className="text-lg font-bold text-slate-800">{UNIS[histDetail.uni]?.name||histDetail.uni}</div>
+                        <div className="text-xs text-slate-400 mt-1">{histDetail.timestamp?.toDate?.()?.toLocaleDateString('he-IL',{day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'})||''}</div>
+                    </div>
+                    {histDetail.avgScore&&<div className="text-2xl font-black" style={{color:sC(histDetail.avgScore)}}>{histDetail.avgScore}<span className="text-sm text-slate-400">/100</span></div>}
+                </div>
+                {histDetail.question&&<div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3"><div className="text-xs font-bold text-orange-700 mb-1">השאלה:</div><p className="text-sm text-orange-900">{histDetail.question}</p></div>}
+                <div className="bg-slate-50 border rounded-xl p-3"><div className="text-xs font-bold text-slate-500 mb-1">התשובה שלך:</div><p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{histDetail.content}</p></div>
+            </div>
+            {histDetail.geminiResult&&<div className="mb-4"><RC data={histDetail.geminiResult} name="Gemini 3.1 Pro"/></div>}
+            {histDetail.claudeResult&&<div className="mb-4"><RC data={histDetail.claudeResult} name="Claude Opus 4.6"/></div>}
+            {histDetail.gptResult&&<div className="mb-4"><RC data={histDetail.gptResult} name="GPT-4o"/></div>}
+            {!histDetail.geminiResult&&!histDetail.claudeResult&&!histDetail.gptResult&&<div className="bg-white p-8 rounded-2xl border text-center text-slate-400"><p className="font-bold">אין חוות דעת שמורה</p><p className="text-xs mt-1">ניתוחים ישנים לא שמרו תוצאות מלאות</p></div>}
+        </div>}
+
+        {/* ===== HOME ===== */}
         {view==='home'&&<div className="max-w-4xl mx-auto mt-6 fi">
             <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Gemini 3.1 Pro &middot; Claude Opus 4.6 &middot; GPT-4o</p></div>
             <div className="grid md:grid-cols-3 gap-5 mb-8">
@@ -181,9 +191,37 @@ function App(){
                 {showAQ&&<div className="bg-white p-4 rounded-2xl border border-orange-200 mb-4 fi"><div className="flex gap-3 mb-3"><select value={nq.c} onChange={e=>setNq({...nq,c:e.target.value})} className="bg-slate-100 border rounded-lg px-3 py-2 text-sm font-bold">{Object.entries(CN).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select><input value={nq.t} onChange={e=>setNq({...nq,t:e.target.value})} placeholder="תגית" className="flex-1 bg-slate-100 border rounded-lg px-3 py-2 text-sm"/></div><textarea value={nq.q} onChange={e=>setNq({...nq,q:e.target.value})} placeholder="השאלה..." className="w-full bg-slate-100 border rounded-lg px-3 py-2 text-sm min-h-[60px] resize-none mb-3"/><button onClick={addCQ} disabled={!nq.q.trim()} className="bg-orange-800 text-white font-bold text-sm px-6 py-2 rounded-lg disabled:opacity-40">שמור</button></div>}
                 <div className="space-y-2 max-h-[300px] overflow-y-auto sc">{allQ.map((q,i)=><div key={i} className="bg-white p-3 rounded-xl border flex items-start gap-3"><span className="px-2 py-0.5 rounded text-xs font-bold text-white shrink-0 mt-0.5" style={{background:CC[q.c]}}>{CN[q.c]}</span><div className="flex-1">{q.t&&<div className="text-xs text-slate-400 font-bold">{q.t}</div>}<p className="text-sm text-slate-700">{q.q}</p></div><div className="flex gap-1 shrink-0"><button onClick={()=>{setQIdx(i);setView('multi');setText('');setResults(null)}} className="text-xs text-orange-600 font-bold bg-orange-50 px-2 py-1 rounded">תרגל</button>{q.custom&&<button onClick={()=>delCQ(i-DQ.length)} className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">x</button>}</div></div>)}</div>
             </div>
-            {hist.length>0&&<div className="mb-8"><h3 className="text-lg font-bold text-slate-800 mb-3">&#128200; היסטוריה</h3><div className="space-y-2">{hist.slice(0,5).map((h,i)=><div key={i} className="bg-white p-3 rounded-xl border flex justify-between"><div><div className="text-sm font-bold">{UNIS[h.uni]?.name||h.uni}</div><div className="text-xs text-slate-400">{h.content?.substring(0,50)+'...'}</div></div><div className="text-xs text-slate-400">{h.timestamp?.toDate?.()?.toLocaleDateString('he-IL')||''}</div></div>)}</div></div>}
+
+            {/* ===== HISTORY (CLICKABLE) ===== */}
+            {hist.length>0&&<div className="mb-8">
+                <h3 className="text-lg font-bold text-slate-800 mb-3">&#128200; היסטוריה ({hist.length})</h3>
+                <div className="space-y-2">
+                    {hist.map((h,i)=>{
+                        const hasResults=h.geminiResult||h.claudeResult||h.gptResult;
+                        const avgSc=h.avgScore||null;
+                        return <div key={i} className={'bg-white p-4 rounded-xl border cursor-pointer hover:border-orange-300 hover:shadow-sm transition-all '+(hasResults?'':'opacity-60')} onClick={()=>{setHistDetail(h);setView('histDetail')}}>
+                            <div className="flex justify-between items-center">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-slate-800">{UNIS[h.uni]?.name||h.uni}</span>
+                                        {avgSc&&<span className="text-xs font-black px-2 py-0.5 rounded-full" style={{background:sC(avgSc)+'20',color:sC(avgSc)}}>{avgSc}/100</span>}
+                                    </div>
+                                    {h.question&&<div className="text-xs text-orange-600 mt-1 font-bold">{h.question.substring(0,60)}{h.question.length>60?'...':''}</div>}
+                                    <div className="text-xs text-slate-400 mt-1">{h.content?.substring(0,80)}{h.content?.length>80?'...':''}</div>
+                                </div>
+                                <div className="flex flex-col items-end shrink-0 mr-3">
+                                    <div className="text-xs text-slate-400">{h.timestamp?.toDate?.()?.toLocaleDateString('he-IL')||''}</div>
+                                    {hasResults?<span className="text-xs text-green-600 font-bold mt-1">&#128065; צפה</span>:<span className="text-xs text-slate-300 mt-1">אין חו"ד</span>}
+                                </div>
+                            </div>
+                            {h.scores&&<div className="flex gap-2 mt-2">{h.scores.gemini&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Gemini: {h.scores.gemini}</span>}{h.scores.claude&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Claude: {h.scores.claude}</span>}{h.scores.gpt&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">GPT: {h.scores.gpt}</span>}</div>}
+                        </div>
+                    })}
+                </div>
+            </div>}
         </div>}
 
+        {/* ===== WRITE / TIMED ===== */}
         {(view==='multi'||view==='timed')&&<div className="flex flex-col lg:flex-row gap-6 fi" style={{minHeight:'calc(100vh-140px)'}}>
             <div className="w-full lg:w-1/2 flex flex-col gap-4">
                 {view==='timed'&&<div className="bg-slate-800 text-white p-5 rounded-2xl flex justify-between items-center shadow-lg"><div><div className="text-xs text-slate-400 font-bold mb-1">{tMode==='down'?'נותר':'עבר'}</div><div className={'text-3xl font-mono font-black '+(tMode==='down'&&timer<30?'text-red-400':'')}>{fmt(timer)}</div></div><div className="flex gap-2 flex-wrap">{!tOn?<Fragment><button onClick={()=>{setTMode('up');setTimer(0);setTOn(true)}} className="bg-orange-600 px-4 py-2 rounded-xl text-sm font-bold">ספירה</button><button onClick={()=>{setTMode('down');setTimer(120);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">2 דק</button><button onClick={()=>{setTMode('down');setTimer(300);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">5 דק</button><button onClick={()=>{setTMode('down');setTimer(600);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">10 דק</button></Fragment>:<Fragment><button onClick={()=>setTOn(false)} className="bg-yellow-600 px-4 py-2 rounded-xl text-sm font-bold">עצור</button><button onClick={()=>{setTOn(false);setTimer(0)}} className="bg-red-600 px-4 py-2 rounded-xl text-sm font-bold">אפס</button></Fragment>}</div></div>}
@@ -197,6 +235,7 @@ function App(){
             </div>
         </div>}
 
+        {/* ===== MARTIN ===== */}
         {view==='martin'&&<div className="max-w-2xl mx-auto flex flex-col bg-white border-2 rounded-3xl overflow-hidden shadow-xl fi" style={{height:'calc(100vh - 140px)'}}>
             <div className="bg-orange-50 p-4 border-b font-bold text-orange-900 flex justify-between items-center"><span>&#128104;&#8205;&#9877;&#65039; ראיון קולי</span><span className="text-xs bg-orange-200 px-3 py-1 rounded-full">{uI.name}</span></div>
             {martinFB?(<div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc"><h2 className="text-xl font-black mb-4 text-center">&#128202; דו"ח ועדת קבלה</h2><RC data={martinFB} name="ועדת קבלה"/><button onClick={startMartin} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">ראיון חדש</button></div>):(
@@ -208,7 +247,7 @@ function App(){
                     <div ref={ceRef}/>
                 </div>
                 <div className="p-4 border-t flex gap-2 flex-col">
-                    <button onClick={togMartinRec} disabled={mLd} className={'flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all '+(isMartinRec?'bg-red-500 text-white rp':'bg-orange-800 text-white hover:bg-orange-900')+' disabled:opacity-50'}>{isMartinRec?'\u23F9 \u05E2\u05E6\u05D5\u05E8 \u05D5\u05E9\u05DC\u05D7 (\u05D3\u05D1\u05E8 \u05DC\u05E4\u05D7\u05D5\u05EA 3 \u05E9\u05E0\u05D9\u05D5\u05EA)':'\uD83C\uDF99 \u05DC\u05D7\u05E5, \u05D3\u05D1\u05E8, \u05D5\u05E2\u05E6\u05D5\u05E8 \u05DB\u05E9\u05E1\u05D9\u05D9\u05DE\u05EA'}</button>
+                    <button onClick={togMartinRec} disabled={mLd} className={'flex-1 py-4 rounded-2xl flex items-center justify-center gap-2 font-black transition-all '+(isMartinRec?'bg-red-500 text-white rp':'bg-orange-800 text-white hover:bg-orange-900')+' disabled:opacity-50'}>{isMartinRec?'\u23F9 \u05E2\u05E6\u05D5\u05E8 \u05D5\u05E9\u05DC\u05D7':'\uD83C\uDF99 \u05DC\u05D7\u05E5, \u05D3\u05D1\u05E8, \u05D5\u05E2\u05E6\u05D5\u05E8'}</button>
                     {chat.length>0&&<button onClick={endInterview} disabled={mLd} className="w-full py-2 text-sm font-bold text-orange-800 bg-orange-50 rounded-xl hover:bg-orange-100">סיים וקבל משוב ועדה</button>}
                 </div>
             </Fragment>)}
