@@ -48,14 +48,14 @@ function RC({data,name}){if(!data)return <div className="p-6 bg-white rounded-2x
 
 function App(){
     const [view,setView]=useState('home');const [keys,setKeys]=useState(null);const [db,setDb]=useState(null);const [uni,setUni]=useState('tzfat');
-    const [qIdx,setQIdx]=useState(null);const [text,setText]=useState('');const [loading,setLoading]=useState(false);const [results,setResults]=useState(null);const [tab,setTab]=useState('gemini');
+    const [qIdx,setQIdx]=useState(null);const [text,setText]=useState('');const [loading,setLoading]=useState(false);const [results,setResults]=useState(null);const [tab,setTab]=useState('claude');
     const [chat,setChat]=useState([]);const [mLd,setMLd]=useState(false);const [isMartinRec,setIsMartinRec]=useState(false);const [martinFB,setMartinFB]=useState(null);
     const mRecRef=useRef(null);const aChRef=useRef([]);const curARef=useRef(null);const ceRef=useRef(null);
     const [isRec,setIsRec]=useState(false);const [recO,setRecO]=useState(null);
     const [timer,setTimer]=useState(0);const [tOn,setTOn]=useState(false);const [tMode,setTMode]=useState('up');
     const [cQs,setCQs]=useState([]);const [showAQ,setShowAQ]=useState(false);const [nq,setNq]=useState({c:'bio',t:'',q:''});
     const [hist,setHist]=useState([]);
-    const [histDetail,setHistDetail]=useState(null); // for viewing past evaluations
+    const [histDetail,setHistDetail]=useState(null);
     const allQ=DQ.concat(cQs);const uI=UNIS[uni];
 
     useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});const f=firebase.firestore();setDb(f);f.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)});f.collection('evaluations').orderBy('timestamp','desc').limit(20).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)})}catch(e){}}});},[]);
@@ -113,26 +113,28 @@ function App(){
         const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nLimit: '+uI.limit+'\nTraits: '+uI.traits+'\n'+(qText?'Question: '+qText+'\n':'')+'\nAnswer:\n'+text;
         try{
             const pr=[];
-            if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){console.error('Gemini error:',d.error);return{s:'g',d:null,err:d.error}}return{s:'g',d}}).catch(e=>({s:'g',d:null,err:e.message})));
-            if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){console.error('Claude error:',d.error);return{s:'c',d:null,err:d.error}}return{s:'c',d}}).catch(e=>({s:'c',d:null,err:e.message})));
-            if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){return{s:'o',d:null,err:d.error?.message||d.error}}return{s:'o',d}}).catch(e=>({s:'o',d:null,err:e.message})));
+            // Claude FIRST - most important
+            if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){const e=typeof d.error==='string'?d.error:(d.error?.message||JSON.stringify(d.error));console.error('Claude error:',e);return{s:'c',d:null,err:e}}return{s:'c',d}}).catch(e=>({s:'c',d:null,err:e.message})));
+            if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){const e=typeof d.error==='string'?d.error:(d.error?.message||JSON.stringify(d.error));console.error('Gemini error:',e);return{s:'g',d:null,err:e}}return{s:'g',d}}).catch(e=>({s:'g',d:null,err:e.message})));
+            if(keys.GPT)pr.push(fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.GPT},body:JSON.stringify({model:'gpt-4o',temperature:.3,messages:[{role:'system',content:RUBRIC},{role:'user',content:prompt}]})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){return{s:'o',d:null,err:d.error?.message||JSON.stringify(d.error)}}return{s:'o',d}}).catch(e=>({s:'o',d:null,err:e.message})));
             const raw=await Promise.allSettled(pr);
             const P={gemini:null,claude:null,gpt:null};
             const errors=[];
             raw.forEach(r=>{if(r.status!=='fulfilled')return;const v=r.value;
-                if(v.err){errors.push((v.s==='g'?'Gemini':v.s==='c'?'Claude':'GPT')+': '+v.err);return}
+                if(v.err){var e=typeof v.err==='string'?v.err:(v.err?.message||JSON.stringify(v.err));errors.push((v.s==='g'?'Gemini':v.s==='c'?'Claude':'GPT')+': '+e);return}
                 if(!v.d)return;
                 try{if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'');if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'')}catch(e){}});
             setResults(P);
-            if(P.gemini)setTab('gemini');else if(P.claude)setTab('claude');else if(P.gpt)setTab('gpt');
+            // Claude first priority for tab
+            if(P.claude)setTab('claude');else if(P.gemini)setTab('gemini');else if(P.gpt)setTab('gpt');
             if(errors.length>0)alert('שגיאות:\n'+errors.join('\n'));
 
             // Save full results to Firebase
             if(db){
                 try{
                     const scores={};
-                    if(P.gemini)scores.gemini=P.gemini.total_score;
                     if(P.claude)scores.claude=P.claude.total_score;
+                    if(P.gemini)scores.gemini=P.gemini.total_score;
                     if(P.gpt)scores.gpt=P.gpt.total_score;
                     const avg=Object.values(scores).length?Math.round(Object.values(scores).reduce((a,b)=>a+b,0)/Object.values(scores).length):0;
                     await db.collection('evaluations').add({
@@ -141,12 +143,11 @@ function App(){
                         uni:uni,
                         scores:scores,
                         avgScore:avg,
-                        geminiResult:P.gemini||null,
                         claudeResult:P.claude||null,
+                        geminiResult:P.gemini||null,
                         gptResult:P.gpt||null,
                         timestamp:firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    // Refresh history
                     const snap=await db.collection('evaluations').orderBy('timestamp','desc').limit(20).get();
                     const h=[];snap.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h);
                 }catch(e){console.warn('Firebase save error:',e)}
@@ -163,7 +164,6 @@ function App(){
         <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}</div></header>
         <main className="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
 
-        {/* ===== HISTORY DETAIL VIEW ===== */}
         {view==='histDetail'&&histDetail&&<div className="max-w-3xl mx-auto fi">
             <button onClick={()=>{setView('home');setHistDetail(null)}} className="mb-4 text-sm font-bold text-orange-700 bg-orange-50 px-4 py-2 rounded-full">&#8592; חזרה להיסטוריה</button>
             <div className="bg-white p-5 rounded-2xl border shadow-sm mb-4">
@@ -177,15 +177,14 @@ function App(){
                 {histDetail.question&&<div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3"><div className="text-xs font-bold text-orange-700 mb-1">השאלה:</div><p className="text-sm text-orange-900">{histDetail.question}</p></div>}
                 <div className="bg-slate-50 border rounded-xl p-3"><div className="text-xs font-bold text-slate-500 mb-1">התשובה שלך:</div><p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{histDetail.content}</p></div>
             </div>
-            {histDetail.geminiResult&&<div className="mb-4"><RC data={histDetail.geminiResult} name="Gemini 3.1 Pro"/></div>}
             {histDetail.claudeResult&&<div className="mb-4"><RC data={histDetail.claudeResult} name="Claude Opus 4.6"/></div>}
+            {histDetail.geminiResult&&<div className="mb-4"><RC data={histDetail.geminiResult} name="Gemini 3.1 Pro"/></div>}
             {histDetail.gptResult&&<div className="mb-4"><RC data={histDetail.gptResult} name="GPT-4o"/></div>}
             {!histDetail.geminiResult&&!histDetail.claudeResult&&!histDetail.gptResult&&<div className="bg-white p-8 rounded-2xl border text-center text-slate-400"><p className="font-bold">אין חוות דעת שמורה</p><p className="text-xs mt-1">ניתוחים ישנים לא שמרו תוצאות מלאות</p></div>}
         </div>}
 
-        {/* ===== HOME ===== */}
         {view==='home'&&<div className="max-w-4xl mx-auto mt-6 fi">
-            <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Gemini 3.1 Pro &middot; Claude Opus 4.6 &middot; GPT-4o</p></div>
+            <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Claude Opus 4.6 &middot; Gemini 3.1 Pro &middot; GPT-4o</p></div>
             <div className="grid md:grid-cols-3 gap-5 mb-8">
                 <button onClick={()=>{setView('multi');setText('');setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9997;&#65039;</div><h3 className="text-lg font-bold mb-1">תרגול כתוב</h3><p className="text-xs text-slate-500">ניתוח משולש + HEXACO מלא</p></button>
                 <button onClick={startMartin} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (מרטין)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
@@ -197,7 +196,6 @@ function App(){
                 <div className="space-y-2 max-h-[300px] overflow-y-auto sc">{allQ.map((q,i)=><div key={i} className="bg-white p-3 rounded-xl border flex items-start gap-3"><span className="px-2 py-0.5 rounded text-xs font-bold text-white shrink-0 mt-0.5" style={{background:CC[q.c]}}>{CN[q.c]}</span><div className="flex-1">{q.t&&<div className="text-xs text-slate-400 font-bold">{q.t}</div>}<p className="text-sm text-slate-700">{q.q}</p></div><div className="flex gap-1 shrink-0"><button onClick={()=>{setQIdx(i);setView('multi');setText('');setResults(null)}} className="text-xs text-orange-600 font-bold bg-orange-50 px-2 py-1 rounded">תרגל</button>{q.custom&&<button onClick={()=>delCQ(i-DQ.length)} className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded">x</button>}</div></div>)}</div>
             </div>
 
-            {/* ===== HISTORY (CLICKABLE) ===== */}
             {hist.length>0&&<div className="mb-8">
                 <h3 className="text-lg font-bold text-slate-800 mb-3">&#128200; היסטוריה ({hist.length})</h3>
                 <div className="space-y-2">
@@ -219,14 +217,13 @@ function App(){
                                     {hasResults?<span className="text-xs text-green-600 font-bold mt-1">&#128065; צפה</span>:<span className="text-xs text-slate-300 mt-1">אין חו"ד</span>}
                                 </div>
                             </div>
-                            {h.scores&&<div className="flex gap-2 mt-2">{h.scores.gemini&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Gemini: {h.scores.gemini}</span>}{h.scores.claude&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Claude: {h.scores.claude}</span>}{h.scores.gpt&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">GPT: {h.scores.gpt}</span>}</div>}
+                            {h.scores&&<div className="flex gap-2 mt-2">{h.scores.claude&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Claude: {h.scores.claude}</span>}{h.scores.gemini&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">Gemini: {h.scores.gemini}</span>}{h.scores.gpt&&<span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">GPT: {h.scores.gpt}</span>}</div>}
                         </div>
                     })}
                 </div>
             </div>}
         </div>}
 
-        {/* ===== WRITE / TIMED ===== */}
         {(view==='multi'||view==='timed')&&<div className="flex flex-col lg:flex-row gap-6 fi" style={{minHeight:'calc(100vh-140px)'}}>
             <div className="w-full lg:w-1/2 flex flex-col gap-4">
                 {view==='timed'&&<div className="bg-slate-800 text-white p-5 rounded-2xl flex justify-between items-center shadow-lg"><div><div className="text-xs text-slate-400 font-bold mb-1">{tMode==='down'?'נותר':'עבר'}</div><div className={'text-3xl font-mono font-black '+(tMode==='down'&&timer<30?'text-red-400':'')}>{fmt(timer)}</div></div><div className="flex gap-2 flex-wrap">{!tOn?<Fragment><button onClick={()=>{setTMode('up');setTimer(0);setTOn(true)}} className="bg-orange-600 px-4 py-2 rounded-xl text-sm font-bold">ספירה</button><button onClick={()=>{setTMode('down');setTimer(120);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">2 דק</button><button onClick={()=>{setTMode('down');setTimer(300);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">5 דק</button><button onClick={()=>{setTMode('down');setTimer(600);setTOn(true)}} className="bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold">10 דק</button></Fragment>:<Fragment><button onClick={()=>setTOn(false)} className="bg-yellow-600 px-4 py-2 rounded-xl text-sm font-bold">עצור</button><button onClick={()=>{setTOn(false);setTimer(0)}} className="bg-red-600 px-4 py-2 rounded-xl text-sm font-bold">אפס</button></Fragment>}</div></div>}
@@ -236,11 +233,18 @@ function App(){
             </div>
             <div className="w-full lg:w-1/2 overflow-y-auto sc pb-10">
                 {!results&&!loading&&<div className="h-48 flex flex-col items-center justify-center text-slate-300"><div className="text-5xl mb-3">&#128202;</div><div className="font-bold">הניתוח יופיע כאן</div></div>}
-                {results&&<div className="space-y-4 fi"><div className="flex lg:hidden p-1 bg-slate-200 rounded-xl gap-1 mb-2">{['gemini','claude','gpt'].map(m=><button key={m} onClick={()=>setTab(m)} className={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='gemini'?'Gemini':m==='claude'?'Opus 4.6':'GPT-4o'}</button>)}</div><div className={'lg:block '+(tab==='gemini'?'block':'hidden')}><RC data={results.gemini} name="Gemini 3.1 Pro"/></div><div className={'lg:block mt-4 '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Opus 4.6"/></div><div className={'lg:block mt-4 '+(tab==='gpt'?'block':'hidden')}><RC data={results.gpt} name="GPT-4o"/></div>{(results.gemini||results.claude||results.gpt)&&<div className="bg-slate-800 text-white p-5 rounded-2xl text-center mt-4"><div className="text-xs text-slate-400 mb-1">ממוצע</div><div className="text-4xl font-black">{Math.round([results.gemini?.total_score,results.claude?.total_score,results.gpt?.total_score].filter(Boolean).reduce((a,b)=>a+b,0)/([results.gemini?.total_score,results.claude?.total_score,results.gpt?.total_score].filter(Boolean).length||1))}</div></div>}</div>}
+                {results&&<div className="space-y-4 fi">
+                    <div className="flex lg:hidden p-1 bg-slate-200 rounded-xl gap-1 mb-2">
+                        {['claude','gemini','gpt'].map(m=><button key={m} onClick={()=>setTab(m)} className={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='claude'?'Opus 4.6':m==='gemini'?'Gemini':'GPT-4o'}</button>)}
+                    </div>
+                    <div className={'lg:block '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Opus 4.6"/></div>
+                    <div className={'lg:block mt-4 '+(tab==='gemini'?'block':'hidden')}><RC data={results.gemini} name="Gemini 3.1 Pro"/></div>
+                    <div className={'lg:block mt-4 '+(tab==='gpt'?'block':'hidden')}><RC data={results.gpt} name="GPT-4o"/></div>
+                    {(results.gemini||results.claude||results.gpt)&&<div className="bg-slate-800 text-white p-5 rounded-2xl text-center mt-4"><div className="text-xs text-slate-400 mb-1">ממוצע</div><div className="text-4xl font-black">{Math.round([results.claude?.total_score,results.gemini?.total_score,results.gpt?.total_score].filter(Boolean).reduce((a,b)=>a+b,0)/([results.claude?.total_score,results.gemini?.total_score,results.gpt?.total_score].filter(Boolean).length||1))}</div></div>}
+                </div>}
             </div>
         </div>}
 
-        {/* ===== MARTIN ===== */}
         {view==='martin'&&<div className="max-w-2xl mx-auto flex flex-col bg-white border-2 rounded-3xl overflow-hidden shadow-xl fi" style={{height:'calc(100vh - 140px)'}}>
             <div className="bg-orange-50 p-4 border-b font-bold text-orange-900 flex justify-between items-center"><span>&#128104;&#8205;&#9877;&#65039; ראיון קולי</span><span className="text-xs bg-orange-200 px-3 py-1 rounded-full">{uI.name}</span></div>
             {martinFB?(<div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc"><h2 className="text-xl font-black mb-4 text-center">&#128202; דו"ח ועדת קבלה</h2><RC data={martinFB} name="ועדת קבלה"/><button onClick={startMartin} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">ראיון חדש</button></div>):(
