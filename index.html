@@ -30,9 +30,60 @@ const {useState,useEffect,useRef,Fragment}=React;
 
 const UNIS={mor:{name:'מו"ר / מרק"ם',limit:750,format:'סעיפים, 7-10 שורות כתב יד',desc:'יום תחנות (8-12 תחנות, 10 דקות). שאלון ביוגרפי. השנה עובר למחשב.',traits:'אמפתיה, תקשורת, עבודת צוות, יציבות רגשית, שיקול דעת אתי',tip:'הכינו 8-12 סיפורים. מצב, פעולה, תוצאה, לקח.'},bgu:{name:'בן-גוריון',limit:1200,format:'פסקה שלמה 850-1200 תווים',desc:'מרק"ם + ביוגרפי. דגש על רפואה קהילתית ואוכלוסיות מוחלשות.',traits:'מחויבות חברתית, צניעות, עבודת צוות, עניין בפריפריה',tip:'הראו עניין באוכלוסיות מגוונות. פסקה אחת רציפה.'},tzfat:{name:'צפת / בר-אילן',limit:850,format:'850 תווים לסעיף (ממוחשב)',desc:'מבחן אישיות ממוחשב + ראיון + ביוגרפי. 21 שאלות כולל וידאו.',traits:'מוחצנות, נועם הליכות, מצפוניות, יציבות, פתיחות',tip:'דגש פריפריה. פרופיל מאוזן. עקביות שאלון-ראיון.'},haifa:{name:'חיפה',limit:1200,format:'פסקה שלמה 850-1200 תווים',desc:'מבחני אישיות + ראיונות. ועדות בוחנות מוטיבציה ואישיות.',traits:'תקשורת, אחריות, התאמה קלינית, מוטיבציה אותנטית',tip:'הכירו מערכת הבריאות. עיניים פקוחות.'},ariel:{name:'אריאל',limit:850,format:'מס"ר + שאו"ל + ביוגרפי',desc:'אחוז משמעותי אישיותי. מחפשים בשלות.',traits:'אחריות, בשלות, תקשורת, עבודת צוות',tip:'ניסיון חיים ובגרות אישית.'}};
 
-const RUBRIC=`You are an extremely strict examiner for Israeli medical school admissions. Be direct, do NOT flatter.\nScoring (0-100):\nA Technical(20): limit(5), chronology post-hs(5), complete(5), unique(5).\nB Narrative(30): STAR active verbs(10), rationale(10), clarity(10).\nC HEXACO(50): honesty no buts(15), deep reflection(15), empathy(10), resilience(10).\nRed flags=0: fabrication, blaming, insensitivity, paternalism.\nBonuses: interpersonal difficulty, moral complexity.\nDoctor sim: communication, empathy, autonomy. Dilemma: complexity, values. Video: structure, brevity, authenticity.\nALL Hebrew. ONLY valid JSON:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
+const RUBRIC=`You are an extremely strict, experienced examiner for Israeli medical school admissions (MOR, MARKAM, MSR). You have 20 years of experience evaluating candidates.
 
-const COMMITTEE=`אתה צוות מעריכים בוועדת קבלה לרפואה. תמלול ראיון להלן. הערך לפי HEXACO: כנות, ענווה, רפלקציה, אמפתיה, חוסן. זהה דגלים אדומים. הפק JSON בלבד:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
+CRITICAL WRITING STYLE INSTRUCTIONS:
+- Write LONG, DETAILED, RICH evaluations in Hebrew. Do NOT be brief.
+- Every "notes" and "note" field must be at least 2-3 full sentences with specific examples from the candidate's text.
+- Quote specific phrases from the candidate's answer to support your analysis.
+- Explain WHY you gave each score - what was good, what was missing, what could be better.
+- The "one_line" must be a meaningful, nuanced summary - not generic.
+- "strengths" - list at least 3 specific strengths with explanations.
+- "improvements" - list at least 3 specific, actionable improvement suggestions with examples of how to rewrite.
+- "rewrite_suggestion" - write a FULL rewritten version of the answer (at least 150 words) that demonstrates how to improve it.
+- "red_flags" - explain each flag in detail, not just one word.
+- Be direct and honest. Do NOT flatter. If the answer is weak, explain exactly why.
+
+SCORING RUBRIC (0-100):
+
+Part A - Technical Framework (20 points):
+1. Character/space limit adherence (5) - is it concise and focused within the limit?
+2. Chronological relevance (5) - event must be AFTER high school (army, work, university, volunteering). Pre-army events = 0.
+3. Complete answer to all sub-questions (5) - each part of the question addressed separately.
+4. Uniqueness of story (5) - specific personal story, not generic. Could only YOU tell this story?
+
+Part B - Narrative Structure (30 points):
+1. STAR Model (10) - clear Situation, active Task/Action (I initiated, I led, I decided - NOT it happened, it was difficult), measurable Result.
+2. Rationale explanation (10) - WHY did you act this way? What was your internal decision-making process? What values guided you?
+3. Clarity and eloquence (10) - flowing prose, appropriate but not pretentious language, good paragraph structure.
+
+Part C - Personality Profile HEXACO (50 points):
+1. Honesty and Humility (15) - admitting mistakes with FULL responsibility. No "but", no "however", no justifications. No self-glorification. Genuine vulnerability.
+2. Reflection and Insight (15) - deep post-analysis with PERSONAL internal lesson. NOT generic like "I learned listening is important." Must be specific: what exactly changed in your behavior/thinking AFTER this event?
+3. Empathy and Agreeableness (10) - acknowledging the OTHER person's feelings and perspective. Understanding their point of view even when you disagree.
+4. Resilience and Conscientiousness (10) - facing REAL difficulty (not cosmetic), persistence under genuine pressure, emotional regulation.
+
+RED FLAGS (automatic 0 in that parameter - explain each one in detail):
+- Fabricated or exaggerated story
+- Blaming the victim or others ("he was too sensitive", "my commander was terrible")
+- Insensitivity toward someone in distress
+- Inconsistency between stated values and described behavior
+- Paternalism in medical scenarios ("I helped him because he didn't understand")
+
+BONUSES:
+- Role questions: interpersonal/managerial difficulty (not just technical challenge)
+- Conflict questions: presenting genuine complexity (not black and white)
+- Ethical dilemmas: presenting BOTH sides before deciding, acknowledging the cost of the decision
+
+For doctor simulations: evaluate communication style, empathy expression, respect for patient autonomy, professional boundaries.
+For ethical dilemmas: evaluate complexity of thinking, identification of conflicting values, reasoning process.
+For video questions: evaluate structure (opening-body-closing), brevity (60-90 seconds), authenticity of delivery.
+
+ALL evaluation text MUST be in Hebrew. Write richly and in detail.
+Respond ONLY with valid JSON (no markdown, no backticks):
+{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
+
+const COMMITTEE=`אתה צוות מעריכים בכיר בוועדת קבלה לרפואה. לפניך תמלול ראיון מלא. הערך בפירוט רב לפי מודל HEXACO: כנות וענווה, רגישות, מוחצנות, נוחות, מצפוניות, פתיחות. זהה דגלים אדומים והסבר כל אחד. כתוב חוות דעת ארוכה ומפורטת בעברית. ציטט מהתמלול. הפק JSON בלבד:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
 
 const DQ=[{c:'bio',t:'אירועי עבר',q:'ספר על מקרה שבו פגעת במישהו. איך הבנת? איך הרגשת ופעלת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'תאר תקשורת לא טובה מול אדם אחר. מה הקושי? איך ראית את זה? איך פתרת?'},{c:'bio',t:'אירועי עבר',q:'תאר משימה שנכשלת בה. מה הרגשת? איך התמודדת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'ספר על ביקורת שקיבלת. מה הסיטואציה? איך הגבת? איך השפיעה?'},{c:'bio',t:'רקע',q:'היכן התנדבת ולמה? מה פחות אהבת? איך התמודדת?'},{c:'bio',t:'מוטיבציה',q:'מה מושך אותך ברפואה? דוגמאות קונקרטיות.'},{c:'bio',t:'אירועי עבר',q:'תאר מקרה שבו השפלת מישהו. מה עשית? מה למדת?'},{c:'vid',t:'צפת 2026',q:'תאר תקופה של רגשות שליליים. מה עבר עליך ואיך התמודדת?'},{c:'vid',t:'צפת 2026',q:'מישהו הגיב בחוסר פרופורציה. מה עשית ומה למדת?'},{c:'vid',t:'צפת 2026',q:'מה מושך אותך ברפואה? דבר למצלמה, 1-2 דקות.'},{c:'sit',t:'תפקידים',q:'אתה רופא. מטופל בן 55 לבד, ממצא חשוד. הוא בוכה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל כועס חיכה 3 שעות. צועק עליך. מה תעשה?'},{c:'sit',t:'תפקידים',q:'אחות בכירה לא מבצעת הוראה. אומרת: אני 20 שנה פה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל 70 מסרב לאינסולין. אומר: לא צריך כימיקלים. מה תעשה?'},{c:'sit',t:'תפקידים',q:'משפחה מבקשת לא לספר למטופל צלול בן 70. הוא שואל. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'משפחת מטופל סופני: אל תספר לו, זה יהרוג אותו. מה הערכים? מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'הנשמה אחת. ילד 8 ואישה 45 אם ל-3. איך תחליט?'},{c:'dil',t:'שיקול דעת',q:'מטופל 17 בסמים, מבקש סודיות. ההורים שואלים. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'רופא בכיר טועה במינון. אומר: אל תתערב. מה עכשיו?'},{c:'dil',t:'שיקול דעת',q:'מטופלת מבקשת הליך מותר בחוק שסותר ערכיך. מה תעשה?'}];
 const CN={bio:'ביוגרפי',vid:'וידאו',sit:'סיטואציה',dil:'דילמה'};
@@ -177,14 +228,14 @@ function App(){
                 {histDetail.question&&<div className="bg-orange-50 border border-orange-200 rounded-xl p-3 mb-3"><div className="text-xs font-bold text-orange-700 mb-1">השאלה:</div><p className="text-sm text-orange-900">{histDetail.question}</p></div>}
                 <div className="bg-slate-50 border rounded-xl p-3"><div className="text-xs font-bold text-slate-500 mb-1">התשובה שלך:</div><p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{histDetail.content}</p></div>
             </div>
-            {histDetail.claudeResult&&<div className="mb-4"><RC data={histDetail.claudeResult} name="Claude Opus 4.6"/></div>}
+            {histDetail.claudeResult&&<div className="mb-4"><RC data={histDetail.claudeResult} name="Claude Sonnet 4"/></div>}
             {histDetail.geminiResult&&<div className="mb-4"><RC data={histDetail.geminiResult} name="Gemini 3.1 Pro"/></div>}
             {histDetail.gptResult&&<div className="mb-4"><RC data={histDetail.gptResult} name="GPT-4o"/></div>}
             {!histDetail.geminiResult&&!histDetail.claudeResult&&!histDetail.gptResult&&<div className="bg-white p-8 rounded-2xl border text-center text-slate-400"><p className="font-bold">אין חוות דעת שמורה</p><p className="text-xs mt-1">ניתוחים ישנים לא שמרו תוצאות מלאות</p></div>}
         </div>}
 
         {view==='home'&&<div className="max-w-4xl mx-auto mt-6 fi">
-            <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Claude Opus 4.6 &middot; Gemini 3.1 Pro &middot; GPT-4o</p></div>
+            <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Claude Sonnet 4 &middot; Gemini 3.1 Pro &middot; GPT-4o</p></div>
             <div className="grid md:grid-cols-3 gap-5 mb-8">
                 <button onClick={()=>{setView('multi');setText('');setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9997;&#65039;</div><h3 className="text-lg font-bold mb-1">תרגול כתוב</h3><p className="text-xs text-slate-500">ניתוח משולש + HEXACO מלא</p></button>
                 <button onClick={startMartin} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (מרטין)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
@@ -235,9 +286,9 @@ function App(){
                 {!results&&!loading&&<div className="h-48 flex flex-col items-center justify-center text-slate-300"><div className="text-5xl mb-3">&#128202;</div><div className="font-bold">הניתוח יופיע כאן</div></div>}
                 {results&&<div className="space-y-4 fi">
                     <div className="flex lg:hidden p-1 bg-slate-200 rounded-xl gap-1 mb-2">
-                        {['claude','gemini','gpt'].map(m=><button key={m} onClick={()=>setTab(m)} className={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='claude'?'Opus 4.6':m==='gemini'?'Gemini':'GPT-4o'}</button>)}
+                        {['claude','gemini','gpt'].map(m=><button key={m} onClick={()=>setTab(m)} className={'flex-1 py-2 text-xs font-bold rounded-lg '+(tab===m?'bg-white shadow text-orange-800':'text-slate-500')}>{m==='claude'?'Sonnet 4':m==='gemini'?'Gemini':'GPT-4o'}</button>)}
                     </div>
-                    <div className={'lg:block '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Opus 4.6"/></div>
+                    <div className={'lg:block '+(tab==='claude'?'block':'hidden')}><RC data={results.claude} name="Claude Sonnet 4"/></div>
                     <div className={'lg:block mt-4 '+(tab==='gemini'?'block':'hidden')}><RC data={results.gemini} name="Gemini 3.1 Pro"/></div>
                     <div className={'lg:block mt-4 '+(tab==='gpt'?'block':'hidden')}><RC data={results.gpt} name="GPT-4o"/></div>
                     {(results.gemini||results.claude||results.gpt)&&<div className="bg-slate-800 text-white p-5 rounded-2xl text-center mt-4"><div className="text-xs text-slate-400 mb-1">ממוצע</div><div className="text-4xl font-black">{Math.round([results.claude?.total_score,results.gemini?.total_score,results.gpt?.total_score].filter(Boolean).reduce((a,b)=>a+b,0)/([results.claude?.total_score,results.gemini?.total_score,results.gpt?.total_score].filter(Boolean).length||1))}</div></div>}
