@@ -1,60 +1,56 @@
-export default async function handler(req, res) {
+// Edge Runtime = 30 second timeout (instead of 10s for serverless)
+export const config = { runtime: 'edge' };
+
+export default async function handler(req) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'Content-Type': 'application/json' } });
   }
 
-  var KEY = process.env.CLAUDE_API_KEY;
+  const KEY = process.env.CLAUDE_API_KEY;
   if (!KEY) {
-    console.error('CLAUDE_API_KEY is not set in environment variables');
-    return res.status(500).json({ error: 'CLAUDE_API_KEY not configured. Add it in Vercel Settings > Environment Variables.' });
+    return new Response(JSON.stringify({ error: 'CLAUDE_API_KEY not configured' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 
-  // Log key prefix for debugging (safe - only first 8 chars)
-  console.log('Claude API key starts with:', KEY.substring(0, 8) + '...');
-
-  var body = req.body;
-  if (!body.prompt) {
-    return res.status(400).json({ error: 'No prompt provided' });
-  }
-
-  var models = ['claude-opus-4-6', 'claude-sonnet-4-20250514'];
-
-  for (var i = 0; i < models.length; i++) {
-    try {
-      console.log('Trying Claude model:', models[i]);
-      
-      var response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': KEY,
-          'anthropic-version': '2023-06-01'
-        },
-        body: JSON.stringify({
-          model: models[i],
-          max_tokens: 2000,
-          system: body.system || '',
-          messages: [{ role: 'user', content: body.prompt }]
-        })
-      });
-
-      var data = await response.json();
-
-      console.log('Claude', models[i], 'response status:', response.status);
-
-      if (response.ok && data.content && data.content.length > 0) {
-        console.log('Claude', models[i], 'SUCCESS');
-        return res.status(200).json(data);
-      }
-
-      // Log the error
-      var errMsg = data.error ? (typeof data.error === 'string' ? data.error : data.error.message || JSON.stringify(data.error)) : 'Unknown error';
-      console.error('Claude', models[i], 'failed:', response.status, errMsg);
-      
-    } catch (e) {
-      console.error('Claude', models[i], 'exception:', e.message);
+  try {
+    const body = await req.json();
+    if (!body.prompt) {
+      return new Response(JSON.stringify({ error: 'No prompt' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
-  }
 
-  return res.status(500).json({ error: 'Claude API failed for all models. Verify CLAUDE_API_KEY is correct in Vercel.' });
+    // Try Opus 4.6 first, fallback to Sonnet 4
+    const models = ['claude-opus-4-6', 'claude-sonnet-4-20250514'];
+
+    for (let i = 0; i < models.length; i++) {
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': KEY,
+            'anthropic-version': '2023-06-01'
+          },
+          body: JSON.stringify({
+            model: models[i],
+            max_tokens: 2000,
+            system: body.system || '',
+            messages: [{ role: 'user', content: body.prompt }]
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.content && data.content.length > 0) {
+          return new Response(JSON.stringify(data), { status: 200, headers: { 'Content-Type': 'application/json' } });
+        }
+
+        console.warn('Claude ' + models[i] + ' failed:', response.status);
+      } catch (e) {
+        console.warn('Claude ' + models[i] + ' error:', e.message);
+      }
+    }
+
+    return new Response(JSON.stringify({ error: 'Claude failed for all models' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+  }
 }
