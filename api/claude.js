@@ -11,8 +11,6 @@ export default async function handler(req, res) {
   try {
     var body = req.body;
 
-    // Sonnet 4 - fast (3-5 seconds), fits in Vercel 10s timeout
-    // Opus 4.6 needs 15-30 seconds = too slow for Vercel Hobby
     var response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -22,7 +20,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+        max_tokens: 1200,
         system: body.system || '',
         messages: [{ role: 'user', content: body.prompt || '' }]
       })
