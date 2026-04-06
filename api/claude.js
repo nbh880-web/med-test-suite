@@ -10,6 +10,7 @@ export default async function handler(req, res) {
 
   try {
     var body = req.body;
+    var systemPrompt = (body.system || '') + '\n\nCRITICAL: Return ONLY raw JSON. Do NOT wrap in ```json or ``` or any markdown. Start your response with { and end with }. Nothing else.';
 
     var response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -20,8 +21,8 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 1200,
-        system: body.system || '',
+        max_tokens: 4096,
+        system: systemPrompt,
         messages: [{ role: 'user', content: body.prompt || '' }]
       })
     });
