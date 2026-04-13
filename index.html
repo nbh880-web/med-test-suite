@@ -93,7 +93,8 @@ function App(){
     const [qFilter,setQFilter]=useState('all');
     const [hSearch,setHSearch]=useState('');
     const [hFilter,setHFilter]=useState('all');
-    const [hDateFilter,setHDateFilter]=useState('all');
+    const [hDateFrom,setHDateFrom]=useState('');
+    const [hDateTo,setHDateTo]=useState('');
     const [hStarOnly,setHStarOnly]=useState(false);
     const [hScoreFilter,setHScoreFilter]=useState('all');
     const allQ=DQ.concat(cQs);const uI=UNIS[uni];
@@ -108,12 +109,11 @@ function App(){
             if(hScoreFilter==='mid'&&(sc<60||sc>=80))return false;
             if(hScoreFilter==='low'&&sc>=60)return false;
         }
-        if(hDateFilter!=='all'&&h.timestamp){
-            const d=h.timestamp.toDate?h.timestamp.toDate():new Date(h.timestamp);
-            const now=new Date();
-            if(hDateFilter==='today'&&d.toDateString()!==now.toDateString())return false;
-            if(hDateFilter==='week'){const w=new Date(now);w.setDate(w.getDate()-7);if(d<w)return false}
-            if(hDateFilter==='month'){const m=new Date(now);m.setMonth(m.getMonth()-1);if(d<m)return false}
+        if(hDateFrom||hDateTo){
+            const d=h.timestamp?.toDate?h.timestamp.toDate():null;
+            if(!d)return false;
+            if(hDateFrom&&d<new Date(hDateFrom+'T00:00:00'))return false;
+            if(hDateTo&&d>new Date(hDateTo+'T23:59:59'))return false;
         }
         return true;
     });
@@ -252,7 +252,7 @@ function App(){
             {hist.length>0&&<div className="mb-8">
                 <div className="flex justify-between items-center mb-3"><h3 className="text-lg font-bold text-slate-800">&#128200; היסטוריה ({filteredH.length}/{hist.length})</h3><button onClick={()=>setHStarOnly(!hStarOnly)} className={'text-xs font-bold px-4 py-2 rounded-full '+(hStarOnly?'bg-yellow-100 text-yellow-700 border border-yellow-300':'bg-slate-100 text-slate-500')}>{hStarOnly?'\u2605 מועדפים':'\u2606 מועדפים'}</button></div>
                 <div className="flex gap-2 mb-2 flex-wrap"><input value={hSearch} onChange={e=>setHSearch(e.target.value)} placeholder="&#128269; חיפוש..." className="flex-1 min-w-[120px] bg-white border rounded-xl px-3 py-2 text-sm"/><select value={hFilter} onChange={e=>setHFilter(e.target.value)} className="bg-white border rounded-xl px-3 py-2 text-sm font-bold"><option value="all">כל המוסדות</option>{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select></div>
-                <div className="flex gap-2 mb-3 flex-wrap"><select value={hDateFilter} onChange={e=>setHDateFilter(e.target.value)} className="bg-white border rounded-xl px-3 py-2 text-xs font-bold"><option value="all">כל התאריכים</option><option value="today">היום</option><option value="week">השבוע</option><option value="month">החודש</option></select><select value={hScoreFilter} onChange={e=>setHScoreFilter(e.target.value)} className="bg-white border rounded-xl px-3 py-2 text-xs font-bold"><option value="all">כל הציונים</option><option value="high">80+ מצוין</option><option value="mid">60-79 סביר</option><option value="low">מתחת 60</option></select>{(hFilter!=='all'||hDateFilter!=='all'||hScoreFilter!=='all'||hStarOnly||hSearch)&&<button onClick={()=>{setHFilter('all');setHDateFilter('all');setHScoreFilter('all');setHStarOnly(false);setHSearch('')}} className="text-xs text-red-500 font-bold bg-red-50 px-3 py-2 rounded-xl">&#10005; נקה הכל</button>}</div>
+                <div className="flex gap-2 mb-3 flex-wrap items-center"><span className="text-xs text-slate-500 font-bold">מתאריך</span><input type="date" value={hDateFrom} onChange={e=>setHDateFrom(e.target.value)} className="bg-white border rounded-xl px-2 py-2 text-xs"/><span className="text-xs text-slate-500 font-bold">עד</span><input type="date" value={hDateTo} onChange={e=>setHDateTo(e.target.value)} className="bg-white border rounded-xl px-2 py-2 text-xs"/><select value={hScoreFilter} onChange={e=>setHScoreFilter(e.target.value)} className="bg-white border rounded-xl px-3 py-2 text-xs font-bold"><option value="all">כל הציונים</option><option value="high">80+ מצוין</option><option value="mid">60-79 סביר</option><option value="low">מתחת 60</option></select>{(hFilter!=='all'||hDateFrom||hDateTo||hScoreFilter!=='all'||hStarOnly||hSearch)&&<button onClick={()=>{setHFilter('all');setHDateFrom('');setHDateTo('');setHScoreFilter('all');setHStarOnly(false);setHSearch('')}} className="text-xs text-red-500 font-bold bg-red-50 px-3 py-2 rounded-xl">&#10005; נקה</button>}</div>
                 {filteredH.length===0&&<div className="text-center text-slate-400 py-6 text-sm font-bold">אין תוצאות</div>}
                 <div className="space-y-2 max-h-[500px] overflow-y-auto sc">{filteredH.map((h,i)=>{const hasR=h.geminiResult||h.claudeResult||h.gptResult;const avg=h.avgScore||null;return <div key={i} className={'bg-white p-4 rounded-xl border cursor-pointer hover:border-orange-300 transition-all '+(hasR?'':'opacity-60')} onClick={()=>{setHistDetail(h);setView('histDetail')}}>
                     <div className="flex justify-between items-start">
