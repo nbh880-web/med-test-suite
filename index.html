@@ -50,40 +50,85 @@ ALL text Hebrew. Respond ONLY valid JSON no markdown no backticks:
 
 const COMMITTEE=`אתה צוות מעריכים בכיר בוועדת קבלה לרפואה. תמלול ראיון להלן. הערך בפירוט לפי HEXACO. זהה דגלים אדומים. כתוב חוות דעת מפורטת בעברית. הפק JSON בלבד:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
 
-const CREATIVE_RUBRIC=`You are a senior evaluator for Ben-Gurion University medical school creative/imaginative question section. This is NOT a biographical question — it's a creative-scientific-medical imagination question that tests how the candidate thinks.
+const CREATIVE_RUBRIC=`You are a senior evaluator for Ben-Gurion University medical school creative question section, using the Noam Institute evaluation methodology.
 
-Based on Noam Institute evaluation guidelines: The answer should combine free imagination and creativity WITH evidence-based medical thinking and ethical understanding. Original ideas should be grounded in real trends (AI, personalized medicine, life extension, microbiome). Must go BEYOND technology to ethical and social implications (equality of access, privacy, quality of life definition). Must demonstrate systemic thinking that sees the person in a broad context. A good answer proposes original directions while maintaining coherence, human sensitivity, and ability to connect science, society, and values — in clear, structured writing.
+STEP 1 — IDENTIFY THE MODULE: Read the question and classify it:
+- Module A (Research): questions about research projects, scientific investigations, lab work
+- Module B (Speculative): questions about the future, space missions, conferences in 2106, longevity in 2100
+- Module C (Entity Dialogue): questions about talking to bacteria, viruses, cells, microorganisms
 
-Write detailed evaluations in Hebrew. Quote specific phrases. Be honest and direct.
+STEP 2 — SCORE THE UNIVERSAL CORE (60 points):
 
-Scoring (0-100):
+Section 1: Framework & Technique (15 pts)
+- Word limit adherence, 350 words (3)
+- Answers ALL sub-questions explicitly (5)
+- Lexical accuracy, no word confusion like אורך/אורח חיים (4)
+- Punctuation, syntax, grammar — complete correct sentences (3)
 
-A Creative Thinking & Originality (25 points):
-- Imagination quality(10): surprising angle, unexpected perspective, goes beyond obvious answers. Would this stand out in 500 essays?
-- Grounding in reality(8): creative ideas anchored in real medical/scientific trends (AI, personalized medicine, microbiome, gene therapy, longevity), not pure fantasy.
-- Going beyond the obvious(7): avoids clichés and predictable answers. Shows independent thinking.
+Section 2: Cognition & Writing Quality (15 pts)
+- Logical structure: opening→body→ending, clear skeleton (5)
+- Clear transitions between ideas, no jumps (5)
+- Clean fluent sentences, no broken/run-on sentences, no repetition (5)
 
-B Scientific-Medical Depth (25 points):
-- Medical knowledge integration(10): demonstrates understanding of real medical concepts, processes, or trends — woven naturally into the creative answer.
-- Systemic thinking(8): sees the big picture — connections between technology, society, ethics, patient experience. Not tunnel vision.
-- Ethical & social awareness(7): addresses implications beyond technology — equality of access, privacy, quality of life, social cost. Relevant for BGU mission.
+Section 3: Creativity & Originality (10 pts)
+- Non-cliché angle (5): avoids genre clichés. For Module A: "genetics and longevity", "cancer in general", "AI in diagnosis". For Module B: "bone loss in space" without angle, "nano-robots will save us", "AI will change everything". For Module C: naive anthropomorphism "why are you bad?", "what is your purpose in life?"
+- Focused sharp idea/vision (5): specific not vague
 
-C Human & Emotional Depth (30 points):
-- Sensitivity & empathy(10): awareness of human experience, suffering, hope. Can inhabit another perspective.
-- Values revealed(10): what does the answer tell us about WHO this person is? Their priorities, doubts, vision.
-- Authenticity(10): sounds like a real thinking person, not a rehearsed answer or AI-generated text. Personal voice, unique observations.
+Section 4: Personality Profile (10 pts)
+- Humility in role choice (3): willingness for "ant work" not just "strategy". Red flag: "I would lead the team"
+- Processed authenticity (3): personal connection that is processed, not traumatic dumping
+- Recognition of limitations and resilience (2): "there may not be a breakthrough", "I understand this is beyond my current ability"
+- Empathy and human sensitivity (2): reference to human body, patients, vulnerable populations
 
-D Writing Quality (20 points):
-- Structure & coherence(7): clear arc, logical flow, organized paragraphs. Feels complete, not rushed.
-- Language & style(7): rich but authentic vocabulary, varied sentences, readable prose.
-- Prompt adherence(6): actually answers the specific question asked, stays relevant throughout.
+Section 5: Essential Medical Connection (10 pts) — THE M.D. vs Ph.D. TEST
+- Medical aspect is CENTRAL to the answer (4): not an "appendix" but the story axis
+- Connection to concrete human beings (3): patient, astronaut who might get sick, person affected by bacteria
+- "Translation" to practical medicine (3): how finding becomes treatment, test, or clinical practice change
+NOTE: This section is CRITICAL for Module A. For Module B the connection is to the human body/physiology. For Module C it's the Host-Pathogen perspective.
 
-Red flags: AI-generated/rehearsed feel, total disconnect from prompt, pure fantasy with zero medical grounding, preachiness without depth, narcissism, no ethical dimension at all, only listing technologies without human perspective.
+STEP 3 — SCORE THE MODULE (40 points):
 
-Strengths: list 3+. Improvements: list 3+ actionable with examples. rewrite_suggestion: write an improved version showing the potential.
+IF MODULE A (Research Project):
+- Scientific accuracy (15): terminological precision(7) — natural selection≠genetic engineering, genetics≠epigenetics, diagnosis≠prognosis; real tools mentioned(5) — GWAS, CRISPR, RCT, cohort study; understanding science limitations(3)
+- Social-peripheral dimension (15): equality of access(6), periphery and Negev connection for BGU(5), research ethics with one developed dilemma(4)
+- Role specificity (10): concrete daily actions described(5), appropriate for career stage(3), understanding team structure PI/post-doc/coordinator(2)
 
-ALL text Hebrew. ONLY valid JSON no markdown:
-{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":25,"notes":""},"personality":{"score":0,"max":30,"notes":""},"vision":{"score":0,"max":25,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"creativity":{"score":0,"max":10,"note":""},"medical_depth":{"score":0,"max":10,"note":""},"empathy":{"score":0,"max":10,"note":""},"authenticity":{"score":0,"max":10,"note":""}}}`;
+IF MODULE B (Speculative/Futuristic):
+- Scientific-physiological grounding (15): precise terminology for domain(8) — for Artemis: microgravity, SANS, bone density loss, radiation; for 2106: mRNA, CRISPR-Cas9, immunotherapy; credible scientific mechanism(4); based on real research(3) — NASA Twin Study, Mars Analog
+- Ethical thinking about future implications (15): one DEVELOPED concrete dilemma(7); social perspective — who benefits, who doesn't, periphery, gender(5); historical perspective — ethics change over time, humility about past promises(3)
+- Counter-thinking (10): risks of the research itself(4); limits of what can be researched(3); failure scenario — "what if the solution creates a new problem?"(3)
+
+IF MODULE C (Dialogue with Entity):
+- Biological accuracy of entity (15): CRITICAL — correct identification(6) — flu=VIRUS not bacteria!; accurate biological characteristics(5) — gut bacteria=E.coli, microbiome; ecological context(4) — organism is part of a system
+- Imagination as scientific tool (10): knowledge-directed questions(5) — "how do you identify your host cell?" better than "why are you bad?"; unique exploitation of the fantastic format(5)
+- Host-Pathogen perspective (10): understanding immune system↔bacteria is a game(5) — not just "bad bacteria, good immunity"; connection to concrete disease or treatment(5)
+- Ethics of human-microorganism relations (5): recognition of microorganism value(3) — microbiome, probiotics, co-evolution; anthropocentric restraint(2) — understanding bacteria "doesn't know" it's pathogenic
+
+STEP 4 — CHECK RED FLAGS (deduct 10-20 pts):
+Group A (Personality): blaming others, excessive self-glorification, inconsistency between answers, instrumentalizing patient/colleague as "tool" for your values
+Group B (Scientific): basic concept confusion (bacteria/virus, natural selection/genetic engineering, DNA/RNA), word substitution errors, incomprehensible scientific claims
+Group C (Medical fit): disconnection from clinic (sounds like biology PhD not MD), condescension in role choice ("strategy" instead of fieldwork), unprocessed traumatic overload, robotic/alienated language toward humans
+Group D (Ethical/Social): terminology bordering eugenics ("superior human", "race improvement") even as "dilemma", absence of equality/periphery dimension, technological determinism ("technology will solve everything")
+
+TRAP DETECTION — identify if answer falls into the typical trap for this question type:
+- Research: sounds like PhD not MD (missing patient, missing clinic)
+- Space/Artemis: excited child response (missing human body as research subject)
+- Bacteria dialogue: childish anthropomorphism (questions don't require biological knowledge)
+- Conference 2106: boundless sci-fi / clichés ("AI will change everything" without content)
+- Age 120: naive technological optimism (missing social/personal cost)
+
+SCORING SCALE (calibrated downward):
+90-100: Exceptional (rare), 75-89: Strong, 60-74: Adequate ("needs polish"), 45-59: Weak, Below 45: Fail (active red flags)
+
+Write ALL evaluation text in Hebrew. Be detailed — quote specific phrases. Identify which module you detected and why.
+
+CRITICAL: In module_sections, create an array of sub-sections matching the module you identified:
+Module A: [{"label":"דיוק מדעי","score":X,"max":15,"notes":"..."},{"label":"ממד חברתי-פריפריאלי","score":X,"max":15,"notes":"..."},{"label":"ספציפיות התפקיד","score":X,"max":10,"notes":"..."}]
+Module B: [{"label":"עיגון מדעי-פיזיולוגי","score":X,"max":15,"notes":"..."},{"label":"חשיבה אתית על השלכות","score":X,"max":15,"notes":"..."},{"label":"חשיבה במסלול נגדי","score":X,"max":10,"notes":"..."}]
+Module C: [{"label":"דיוק ביולוגי של הישות","score":X,"max":15,"notes":"..."},{"label":"דמיון ככלי מדעי","score":X,"max":10,"notes":"..."},{"label":"פרספקטיבת Host-Pathogen","score":X,"max":10,"notes":"..."},{"label":"אתיקה אדם-מיקרואורגניזם","score":X,"max":5,"notes":"..."}]
+
+Respond ONLY with valid JSON, no markdown, no backticks:
+{"total_score":0,"grade_label":"","one_line":"","module_type":"A","module_name":"","traps_detected":[],"sections":{"framework":{"score":0,"max":15,"notes":""},"cognition":{"score":0,"max":15,"notes":""},"creativity":{"score":0,"max":10,"notes":""},"personality":{"score":0,"max":10,"notes":""},"medical":{"score":0,"max":10,"notes":""}},"module_sections":[{"label":"","score":0,"max":0,"notes":""}],"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":""}`;
 
 const DQ=[{c:'bio',t:'אירועי עבר',q:'ספר על מקרה שבו פגעת במישהו. איך הבנת? איך הרגשת ופעלת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'תאר תקשורת לא טובה מול אדם אחר. מה הקושי? איך ראית את זה? איך פתרת?'},{c:'bio',t:'אירועי עבר',q:'תאר משימה שנכשלת בה. מה הרגשת? איך התמודדת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'ספר על ביקורת שקיבלת. מה הסיטואציה? איך הגבת? איך השפיעה?'},{c:'bio',t:'רקע',q:'היכן התנדבת ולמה? מה פחות אהבת? איך התמודדת?'},{c:'bio',t:'מוטיבציה',q:'מה מושך אותך ברפואה? דוגמאות קונקרטיות.'},{c:'bio',t:'אירועי עבר',q:'תאר מקרה שבו השפלת מישהו. מה עשית? מה למדת?'},{c:'vid',t:'צפת 2026',q:'תאר תקופה של רגשות שליליים. מה עבר עליך ואיך התמודדת?'},{c:'vid',t:'צפת 2026',q:'מישהו הגיב בחוסר פרופורציה. מה עשית ומה למדת?'},{c:'vid',t:'צפת 2026',q:'מה מושך אותך ברפואה? דבר למצלמה, 1-2 דקות.'},{c:'sit',t:'תפקידים',q:'אתה רופא. מטופל בן 55 לבד, ממצא חשוד. הוא בוכה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל כועס חיכה 3 שעות. צועק עליך. מה תעשה?'},{c:'sit',t:'תפקידים',q:'אחות בכירה לא מבצעת הוראה. אומרת: אני 20 שנה פה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל 70 מסרב לאינסולין. אומר: לא צריך כימיקלים. מה תעשה?'},{c:'sit',t:'תפקידים',q:'משפחה מבקשת לא לספר למטופל צלול בן 70. הוא שואל. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'משפחת מטופל סופני: אל תספר לו, זה יהרוג אותו. מה הערכים? מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'הנשמה אחת. ילד 8 ואישה 45 אם ל-3. איך תחליט?'},{c:'dil',t:'שיקול דעת',q:'מטופל 17 בסמים, מבקש סודיות. ההורים שואלים. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'רופא בכיר טועה במינון. אומר: אל תתערב. מה עכשיו?'},{c:'dil',t:'שיקול דעת',q:'מטופלת מבקשת הליך מותר בחוק שסותר ערכיך. מה תעשה?'},{c:'cre',t:'בן-גוריון מחקר',q:'באיזה פרויקט מחקרי היה מעניין אותך להשתתף? הסבר למה ותאר מה היה חלקך במחקר.'},{c:'cre',t:'בן-גוריון דמיון',q:'אם יכולת לדבר עם חיידקי שפעת, מה היית שואל אותם?'},{c:'cre',t:'בן-גוריון דמיון',q:'אם היית יכול לדבר עם חיידק בגוף, עם איזה היית מדבר ולמה?'},{c:'cre',t:'בן-גוריון חלל',q:'דמיין שאתה חלק ממשלחת אסטרונאוטים לתחנת החלל ארטמיס. איזה תחום היית בוחר לחקור, למה, איזה תפקיד היית לוקח במחקר, ולמה הוא חשוב?'},{c:'cre',t:'בן-גוריון עתיד',q:'אם נשתגר לכנס רפואי בשנת 2106 — אילו פריצות דרך טכנולוגיות ואתיות יעמדו במרכז הבמה? מה יהיו כותרות ההרצאות שיגדירו מחדש את המושג "בריאות" במאה הבאה?'},{c:'cre',t:'בן-גוריון מיקרוביום',q:'אילו חיידקים היו יכולים לענות, מה היית שואל אותם לגבי התפקיד שלהם בעולם? האם לדעתך הם רואים בנו "בית", "אוכל", או אולי משהו אחר? איך השאלה הזו משנה את הדרך שבה אנחנו חוקרים מחלות היום?'},{c:'cre',t:'בן-גוריון אריכות ימים',q:'אם היינו יכולים להציץ לנתוני האוכלוסייה של שנת 2100 — מה לדעתך יהיה אחוז האנשים שיגיעו לגיל 120, ומי הם יהיו? הסבר לא רק איזו טכנולוגיה רפואית תביא אותם לשם, אלא גם איזה מחיר חברתי או אישי נשלם כדי שגיל כזה יהיה אפשרי.'}];
 const CN={bio:'ביוגרפי',vid:'וידאו',sit:'סיטואציה',dil:'דילמה',cre:'יצירתית'};
@@ -112,7 +157,29 @@ function pj(t){
 
 function Bar({label,score,max,note}){const p=Math.round((score/max)*100),c=sC(p);return(<div style={{marginBottom:10}}><div style={{display:'flex',justifyContent:'space-between',fontSize:12,fontWeight:600,marginBottom:3,color:'#475569'}}><span>{label}</span><span style={{color:c}}>{score}/{max}</span></div><div style={{height:6,borderRadius:3,background:'#e2e8f0',overflow:'hidden'}}><div style={{height:'100%',width:p+'%',background:c,borderRadius:3,transition:'width .6s'}}/></div>{note&&<div style={{fontSize:11,color:'#64748b',marginTop:3,lineHeight:1.5}}>{note}</div>}</div>)}
 
-function RC({data,name}){if(!data)return <div className="p-6 bg-white rounded-2xl border-2 border-dashed text-center text-slate-300 font-bold">{name} - לא זמין</div>;const sc=data.total_score,c=sC(sc);const isCre=!!data.sections?.vision;return(<div className="bg-white p-5 rounded-2xl border shadow-sm fi" style={{borderTopColor:c,borderTopWidth:3}}><div className="flex justify-between items-center border-b pb-3 mb-3"><div><div className="text-3xl font-black" style={{color:c}}>{sc}<span className="text-sm font-normal text-slate-400"> / 100</span></div><div className="text-sm font-bold" style={{color:c}}>{data.grade_label}</div></div><div className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">{name}</div></div><p className="text-sm italic text-slate-600 mb-4">"{data.one_line}"</p><Bar label={isCre?"איכות כתיבה":"מסגרת טכנית"} score={data.sections?.technical?.score||0} max={data.sections?.technical?.max||20} note={data.sections?.technical?.notes}/><Bar label={isCre?"חשיבה יצירתית ומקוריות":"נרטיב STAR"} score={data.sections?.narrative?.score||0} max={data.sections?.narrative?.max||30} note={data.sections?.narrative?.notes}/><Bar label={isCre?"עומק אנושי ורגשי":"HEXACO"} score={data.sections?.personality?.score||0} max={data.sections?.personality?.max||50} note={data.sections?.personality?.notes}/>{isCre&&data.sections?.vision&&<Bar label="עומק רפואי-מדעי ואתי" score={data.sections.vision.score||0} max={data.sections.vision.max||25} note={data.sections.vision.notes}/>}{data.personality_profile&&<div className="mt-4 pt-3 border-t"><div className="text-xs font-bold text-slate-500 mb-2">{isCre?'פירוט יצירתי':'פירוט HEXACO'}</div>{isCre?<Fragment><Bar label="יצירתיות ומקוריות" score={data.personality_profile.creativity?.score||0} max={data.personality_profile.creativity?.max||10} note={data.personality_profile.creativity?.note}/><Bar label="עומק רפואי-מדעי" score={data.personality_profile.medical_depth?.score||0} max={data.personality_profile.medical_depth?.max||10} note={data.personality_profile.medical_depth?.note}/><Bar label="אמפתיה ורגישות" score={data.personality_profile.empathy?.score||0} max={data.personality_profile.empathy?.max||10} note={data.personality_profile.empathy?.note}/><Bar label="אותנטיות" score={data.personality_profile.authenticity?.score||0} max={data.personality_profile.authenticity?.max||10} note={data.personality_profile.authenticity?.note}/></Fragment>:<Fragment><Bar label="כנות וענווה" score={data.personality_profile.honesty_humility?.score||0} max={15} note={data.personality_profile.honesty_humility?.note}/><Bar label="רפלקציה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/><Bar label="אמפתיה" score={data.personality_profile.empathy?.score||0} max={10} note={data.personality_profile.empathy?.note}/><Bar label="חוסן" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/></Fragment>}</div>}{data.red_flags&&data.red_flags.length>0&&<div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div className="text-xs font-bold text-red-700 mb-1">&#128681; דגלים אדומים</div>{data.red_flags.map((f,i)=><div key={i} className="text-xs text-red-600 mt-1">- {f}</div>)}</div>}{data.strengths&&data.strengths.length>0&&<div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div className="text-xs font-bold text-green-700 mb-1">&#10003; חוזקות</div>{data.strengths.map((s,i)=><div key={i} className="text-xs text-green-600 mt-1">- {s}</div>)}</div>}{data.improvements&&data.improvements.length>0&&<div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div className="text-xs font-bold text-blue-700 mb-1">&#128204; לשפר</div>{data.improvements.map((m,i)=><div key={i} className="text-xs text-blue-600 mt-1">{(i+1)+'. '+m}</div>)}</div>}{data.rewrite_suggestion&&<div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div className="text-xs font-bold text-orange-800 mb-1">&#9997; הצעת ניסוח</div><p className="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}</div>)}
+function RC({data,name}){if(!data)return <div className="p-6 bg-white rounded-2xl border-2 border-dashed text-center text-slate-300 font-bold">{name} - לא זמין</div>;const sc=data.total_score,c=sC(sc);const isCre=!!data.module_type;return(<div className="bg-white p-5 rounded-2xl border shadow-sm fi" style={{borderTopColor:c,borderTopWidth:3}}><div className="flex justify-between items-center border-b pb-3 mb-3"><div><div className="text-3xl font-black" style={{color:c}}>{sc}<span className="text-sm font-normal text-slate-400"> / 100</span></div><div className="text-sm font-bold" style={{color:c}}>{data.grade_label}</div></div><div className="flex flex-col items-end gap-1"><div className="bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-xs font-bold">{name}</div>{isCre&&data.module_name&&<div className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold">מודול: {data.module_name}</div>}</div></div><p className="text-sm italic text-slate-600 mb-4">"{data.one_line}"</p>
+{isCre?<Fragment>
+<div className="text-xs font-bold text-slate-500 mb-2 mt-2">ליבה אוניברסלית (60)</div>
+<Bar label="מסגרת וטכניקה" score={data.sections?.framework?.score||0} max={15} note={data.sections?.framework?.notes}/>
+<Bar label="קוגניציה ואיכות כתיבה" score={data.sections?.cognition?.score||0} max={15} note={data.sections?.cognition?.notes}/>
+<Bar label="יצירתיות ומקוריות" score={data.sections?.creativity?.score||0} max={10} note={data.sections?.creativity?.notes}/>
+<Bar label="פרופיל אישיותי" score={data.sections?.personality?.score||0} max={10} note={data.sections?.personality?.notes}/>
+<Bar label="חיבור רפואי מהותי" score={data.sections?.medical?.score||0} max={10} note={data.sections?.medical?.notes}/>
+<div className="text-xs font-bold text-slate-500 mb-2 mt-4 pt-3 border-t">מודול {data.module_type||''}: {data.module_name||''} (40)</div>
+{data.module_sections&&data.module_sections.map((ms,mi)=><Bar key={mi} label={ms.label} score={ms.score||0} max={ms.max||10} note={ms.notes}/>)}
+{!data.module_sections&&data.sections?.module&&<Bar label={'מודול '+(data.module_name||'')} score={data.sections.module.score||0} max={40} note={data.sections.module.notes}/>}
+</Fragment>:<Fragment>
+<Bar label="מסגרת טכנית" score={data.sections?.technical?.score||0} max={20} note={data.sections?.technical?.notes}/>
+<Bar label="נרטיב STAR" score={data.sections?.narrative?.score||0} max={30} note={data.sections?.narrative?.notes}/>
+<Bar label="HEXACO" score={data.sections?.personality?.score||0} max={50} note={data.sections?.personality?.notes}/>
+</Fragment>}
+{!isCre&&data.personality_profile&&<div className="mt-4 pt-3 border-t"><div className="text-xs font-bold text-slate-500 mb-2">פירוט HEXACO</div><Bar label="כנות וענווה" score={data.personality_profile.honesty_humility?.score||0} max={15} note={data.personality_profile.honesty_humility?.note}/><Bar label="רפלקציה" score={data.personality_profile.reflection?.score||0} max={15} note={data.personality_profile.reflection?.note}/><Bar label="אמפתיה" score={data.personality_profile.empathy?.score||0} max={10} note={data.personality_profile.empathy?.note}/><Bar label="חוסן" score={data.personality_profile.resilience?.score||0} max={10} note={data.personality_profile.resilience?.note}/></div>}
+{data.traps_detected&&data.traps_detected.length>0&&<div className="mt-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200"><div className="text-xs font-bold text-yellow-800 mb-1">&#9888; מלכודות שזוהו</div>{data.traps_detected.map((t,i)=><div key={i} className="text-xs text-yellow-700 mt-1">- {t}</div>)}</div>}
+{data.red_flags&&data.red_flags.length>0&&<div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-100"><div className="text-xs font-bold text-red-700 mb-1">&#128681; דגלים אדומים</div>{data.red_flags.map((f,i)=><div key={i} className="text-xs text-red-600 mt-1">- {f}</div>)}</div>}
+{data.strengths&&data.strengths.length>0&&<div className="mt-3 p-3 bg-green-50 rounded-xl border border-green-100"><div className="text-xs font-bold text-green-700 mb-1">&#10003; חוזקות</div>{data.strengths.map((s,i)=><div key={i} className="text-xs text-green-600 mt-1">- {s}</div>)}</div>}
+{data.improvements&&data.improvements.length>0&&<div className="mt-3 p-3 bg-blue-50 rounded-xl border border-blue-100"><div className="text-xs font-bold text-blue-700 mb-1">&#128204; לשפר</div>{data.improvements.map((m,i)=><div key={i} className="text-xs text-blue-600 mt-1">{(i+1)+'. '+m}</div>)}</div>}
+{data.rewrite_suggestion&&<div className="mt-3 p-3 bg-orange-50 rounded-xl border border-orange-100"><div className="text-xs font-bold text-orange-800 mb-1">&#9997; הצעת ניסוח</div><p className="text-xs text-orange-700 leading-relaxed">{data.rewrite_suggestion}</p></div>}
+</div>)}
 
 function App(){
     const [view,setView]=useState('home');const [keys,setKeys]=useState(null);const [db,setDb]=useState(null);const [uni,setUni]=useState('tzfat');
