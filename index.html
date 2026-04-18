@@ -50,85 +50,30 @@ ALL text Hebrew. Respond ONLY valid JSON no markdown no backticks:
 
 const COMMITTEE=`אתה צוות מעריכים בכיר בוועדת קבלה לרפואה. תמלול ראיון להלן. הערך בפירוט לפי HEXACO. זהה דגלים אדומים. כתוב חוות דעת מפורטת בעברית. הפק JSON בלבד:\n{"total_score":0,"grade_label":"","one_line":"","sections":{"technical":{"score":0,"max":20,"notes":""},"narrative":{"score":0,"max":30,"notes":""},"personality":{"score":0,"max":50,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":"","personality_profile":{"honesty_humility":{"score":0,"max":15,"note":""},"reflection":{"score":0,"max":15,"note":""},"empathy":{"score":0,"max":10,"note":""},"resilience":{"score":0,"max":10,"note":""}}}`;
 
-const CREATIVE_RUBRIC=`You are a senior evaluator for Ben-Gurion University medical school creative question section, using the Noam Institute evaluation methodology.
+const CREATIVE_RUBRIC=`BGU medical school creative question evaluator (Noam Institute methodology). Hebrew output.
 
-STEP 1 — IDENTIFY THE MODULE: Read the question and classify it:
-- Module A (Research): questions about research projects, scientific investigations, lab work
-- Module B (Speculative): questions about the future, space missions, conferences in 2106, longevity in 2100
-- Module C (Entity Dialogue): questions about talking to bacteria, viruses, cells, microorganisms
+STEP 1: Classify question → Module A(research project) / B(speculative/future) / C(dialogue with entity/bacteria/virus)
 
-STEP 2 — SCORE THE UNIVERSAL CORE (60 points):
+STEP 2: CORE (60pts):
+1.Framework(15): word limit 350(3), all sub-questions answered(5), lexical accuracy no word confusion(4), grammar+syntax(3)
+2.Cognition(15): logical structure opening→body→ending(5), clear transitions(5), clean sentences no repetition(5)
+3.Creativity(10): non-cliché angle(5) — A:"genetics+longevity"/"cancer generally"=cliché; B:"nano-robots will save"/"AI changes everything"=cliché; C:naive anthropomorphism "why are you bad?"=cliché. Sharp focused idea(5)
+4.Personality(10): humility not "I'd lead the team"(3), processed authenticity not trauma dump(3), recognizes limitations(2), empathy to humans/patients(2)
+5.Medical Connection(10) MD vs PhD test: medical aspect CENTRAL not appendix(4), concrete human beings(3), translates to clinical practice(3). Module A=patient connection. B=human body/physiology. C=Host-Pathogen.
 
-Section 1: Framework & Technique (15 pts)
-- Word limit adherence, 350 words (3)
-- Answers ALL sub-questions explicitly (5)
-- Lexical accuracy, no word confusion like אורך/אורח חיים (4)
-- Punctuation, syntax, grammar — complete correct sentences (3)
+STEP 3: MODULE (40pts):
+A(Research): scientific accuracy — terminology precision, real tools GWAS/CRISPR/RCT(15); social-peripheral — equality, Negev/BGU, research ethics dilemma(15); role specificity — concrete daily actions, career-appropriate, team structure(10)
+B(Speculative): scientific grounding — domain terms, credible mechanism, real research basis(15); ethical future thinking — one developed dilemma, social perspective, historical humility(15); counter-thinking — risks, limits, failure scenario(10)
+C(Entity): biological accuracy — CRITICAL: flu=VIRUS not bacteria!, accurate characteristics, ecological context(15); imagination as scientific tool — knowledge-directed questions(10); Host-Pathogen perspective — not just "bad bacteria good immunity"(10); ethics of human-microorganism relations(5)
 
-Section 2: Cognition & Writing Quality (15 pts)
-- Logical structure: opening→body→ending, clear skeleton (5)
-- Clear transitions between ideas, no jumps (5)
-- Clean fluent sentences, no broken/run-on sentences, no repetition (5)
+RED FLAGS(-10-20pts): A:blaming,self-glorification,instrumentalizing people. B:concept confusion bacteria/virus,word errors. C:clinic disconnect=PhD not MD,condescension. D:eugenics terminology,no equality dimension,tech determinism.
+TRAPS: Research=missing patient; Space=excited child missing body; Bacteria=childish anthropomorphism; 2106=boundless sci-fi; Age120=naive optimism missing social cost.
+Scale: 90-100exceptional, 75-89strong, 60-74adequate, 45-59weak, <45fail.
 
-Section 3: Creativity & Originality (10 pts)
-- Non-cliché angle (5): avoids genre clichés. For Module A: "genetics and longevity", "cancer in general", "AI in diagnosis". For Module B: "bone loss in space" without angle, "nano-robots will save us", "AI will change everything". For Module C: naive anthropomorphism "why are you bad?", "what is your purpose in life?"
-- Focused sharp idea/vision (5): specific not vague
+Detailed Hebrew evaluation. Quote phrases. List 3+ strengths, 3+ improvements. rewrite_suggestion=improved version.
 
-Section 4: Personality Profile (10 pts)
-- Humility in role choice (3): willingness for "ant work" not just "strategy". Red flag: "I would lead the team"
-- Processed authenticity (3): personal connection that is processed, not traumatic dumping
-- Recognition of limitations and resilience (2): "there may not be a breakthrough", "I understand this is beyond my current ability"
-- Empathy and human sensitivity (2): reference to human body, patients, vulnerable populations
-
-Section 5: Essential Medical Connection (10 pts) — THE M.D. vs Ph.D. TEST
-- Medical aspect is CENTRAL to the answer (4): not an "appendix" but the story axis
-- Connection to concrete human beings (3): patient, astronaut who might get sick, person affected by bacteria
-- "Translation" to practical medicine (3): how finding becomes treatment, test, or clinical practice change
-NOTE: This section is CRITICAL for Module A. For Module B the connection is to the human body/physiology. For Module C it's the Host-Pathogen perspective.
-
-STEP 3 — SCORE THE MODULE (40 points):
-
-IF MODULE A (Research Project):
-- Scientific accuracy (15): terminological precision(7) — natural selection≠genetic engineering, genetics≠epigenetics, diagnosis≠prognosis; real tools mentioned(5) — GWAS, CRISPR, RCT, cohort study; understanding science limitations(3)
-- Social-peripheral dimension (15): equality of access(6), periphery and Negev connection for BGU(5), research ethics with one developed dilemma(4)
-- Role specificity (10): concrete daily actions described(5), appropriate for career stage(3), understanding team structure PI/post-doc/coordinator(2)
-
-IF MODULE B (Speculative/Futuristic):
-- Scientific-physiological grounding (15): precise terminology for domain(8) — for Artemis: microgravity, SANS, bone density loss, radiation; for 2106: mRNA, CRISPR-Cas9, immunotherapy; credible scientific mechanism(4); based on real research(3) — NASA Twin Study, Mars Analog
-- Ethical thinking about future implications (15): one DEVELOPED concrete dilemma(7); social perspective — who benefits, who doesn't, periphery, gender(5); historical perspective — ethics change over time, humility about past promises(3)
-- Counter-thinking (10): risks of the research itself(4); limits of what can be researched(3); failure scenario — "what if the solution creates a new problem?"(3)
-
-IF MODULE C (Dialogue with Entity):
-- Biological accuracy of entity (15): CRITICAL — correct identification(6) — flu=VIRUS not bacteria!; accurate biological characteristics(5) — gut bacteria=E.coli, microbiome; ecological context(4) — organism is part of a system
-- Imagination as scientific tool (10): knowledge-directed questions(5) — "how do you identify your host cell?" better than "why are you bad?"; unique exploitation of the fantastic format(5)
-- Host-Pathogen perspective (10): understanding immune system↔bacteria is a game(5) — not just "bad bacteria, good immunity"; connection to concrete disease or treatment(5)
-- Ethics of human-microorganism relations (5): recognition of microorganism value(3) — microbiome, probiotics, co-evolution; anthropocentric restraint(2) — understanding bacteria "doesn't know" it's pathogenic
-
-STEP 4 — CHECK RED FLAGS (deduct 10-20 pts):
-Group A (Personality): blaming others, excessive self-glorification, inconsistency between answers, instrumentalizing patient/colleague as "tool" for your values
-Group B (Scientific): basic concept confusion (bacteria/virus, natural selection/genetic engineering, DNA/RNA), word substitution errors, incomprehensible scientific claims
-Group C (Medical fit): disconnection from clinic (sounds like biology PhD not MD), condescension in role choice ("strategy" instead of fieldwork), unprocessed traumatic overload, robotic/alienated language toward humans
-Group D (Ethical/Social): terminology bordering eugenics ("superior human", "race improvement") even as "dilemma", absence of equality/periphery dimension, technological determinism ("technology will solve everything")
-
-TRAP DETECTION — identify if answer falls into the typical trap for this question type:
-- Research: sounds like PhD not MD (missing patient, missing clinic)
-- Space/Artemis: excited child response (missing human body as research subject)
-- Bacteria dialogue: childish anthropomorphism (questions don't require biological knowledge)
-- Conference 2106: boundless sci-fi / clichés ("AI will change everything" without content)
-- Age 120: naive technological optimism (missing social/personal cost)
-
-SCORING SCALE (calibrated downward):
-90-100: Exceptional (rare), 75-89: Strong, 60-74: Adequate ("needs polish"), 45-59: Weak, Below 45: Fail (active red flags)
-
-Write ALL evaluation text in Hebrew. Be detailed — quote specific phrases. Identify which module you detected and why.
-
-CRITICAL: In module_sections, create an array of sub-sections matching the module you identified:
-Module A: [{"label":"דיוק מדעי","score":X,"max":15,"notes":"..."},{"label":"ממד חברתי-פריפריאלי","score":X,"max":15,"notes":"..."},{"label":"ספציפיות התפקיד","score":X,"max":10,"notes":"..."}]
-Module B: [{"label":"עיגון מדעי-פיזיולוגי","score":X,"max":15,"notes":"..."},{"label":"חשיבה אתית על השלכות","score":X,"max":15,"notes":"..."},{"label":"חשיבה במסלול נגדי","score":X,"max":10,"notes":"..."}]
-Module C: [{"label":"דיוק ביולוגי של הישות","score":X,"max":15,"notes":"..."},{"label":"דמיון ככלי מדעי","score":X,"max":10,"notes":"..."},{"label":"פרספקטיבת Host-Pathogen","score":X,"max":10,"notes":"..."},{"label":"אתיקה אדם-מיקרואורגניזם","score":X,"max":5,"notes":"..."}]
-
-Respond ONLY with valid JSON, no markdown, no backticks:
-{"total_score":0,"grade_label":"","one_line":"","module_type":"A","module_name":"","traps_detected":[],"sections":{"framework":{"score":0,"max":15,"notes":""},"cognition":{"score":0,"max":15,"notes":""},"creativity":{"score":0,"max":10,"notes":""},"personality":{"score":0,"max":10,"notes":""},"medical":{"score":0,"max":10,"notes":""}},"module_sections":[{"label":"","score":0,"max":0,"notes":""}],"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":""}`;
+ONLY valid JSON no markdown:
+{"total_score":0,"grade_label":"","one_line":"","module_type":"A","module_name":"","traps_detected":[],"sections":{"framework":{"score":0,"max":15,"notes":""},"cognition":{"score":0,"max":15,"notes":""},"creativity":{"score":0,"max":10,"notes":""},"personality":{"score":0,"max":10,"notes":""},"medical":{"score":0,"max":10,"notes":""},"module":{"score":0,"max":40,"notes":""}},"red_flags":[],"strengths":[],"improvements":[],"rewrite_suggestion":""}`;
 
 const DQ=[{c:'bio',t:'אירועי עבר',q:'ספר על מקרה שבו פגעת במישהו. איך הבנת? איך הרגשת ופעלת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'תאר תקשורת לא טובה מול אדם אחר. מה הקושי? איך ראית את זה? איך פתרת?'},{c:'bio',t:'אירועי עבר',q:'תאר משימה שנכשלת בה. מה הרגשת? איך התמודדת? מה למדת?'},{c:'bio',t:'אירועי עבר',q:'ספר על ביקורת שקיבלת. מה הסיטואציה? איך הגבת? איך השפיעה?'},{c:'bio',t:'רקע',q:'היכן התנדבת ולמה? מה פחות אהבת? איך התמודדת?'},{c:'bio',t:'מוטיבציה',q:'מה מושך אותך ברפואה? דוגמאות קונקרטיות.'},{c:'bio',t:'אירועי עבר',q:'תאר מקרה שבו השפלת מישהו. מה עשית? מה למדת?'},{c:'vid',t:'צפת 2026',q:'תאר תקופה של רגשות שליליים. מה עבר עליך ואיך התמודדת?'},{c:'vid',t:'צפת 2026',q:'מישהו הגיב בחוסר פרופורציה. מה עשית ומה למדת?'},{c:'vid',t:'צפת 2026',q:'מה מושך אותך ברפואה? דבר למצלמה, 1-2 דקות.'},{c:'sit',t:'תפקידים',q:'אתה רופא. מטופל בן 55 לבד, ממצא חשוד. הוא בוכה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל כועס חיכה 3 שעות. צועק עליך. מה תעשה?'},{c:'sit',t:'תפקידים',q:'אחות בכירה לא מבצעת הוראה. אומרת: אני 20 שנה פה. מה תעשה?'},{c:'sit',t:'תפקידים',q:'מטופל 70 מסרב לאינסולין. אומר: לא צריך כימיקלים. מה תעשה?'},{c:'sit',t:'תפקידים',q:'משפחה מבקשת לא לספר למטופל צלול בן 70. הוא שואל. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'משפחת מטופל סופני: אל תספר לו, זה יהרוג אותו. מה הערכים? מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'הנשמה אחת. ילד 8 ואישה 45 אם ל-3. איך תחליט?'},{c:'dil',t:'שיקול דעת',q:'מטופל 17 בסמים, מבקש סודיות. ההורים שואלים. מה תעשה?'},{c:'dil',t:'שיקול דעת',q:'רופא בכיר טועה במינון. אומר: אל תתערב. מה עכשיו?'},{c:'dil',t:'שיקול דעת',q:'מטופלת מבקשת הליך מותר בחוק שסותר ערכיך. מה תעשה?'},{c:'cre',t:'בן-גוריון מחקר',q:'באיזה פרויקט מחקרי היה מעניין אותך להשתתף? הסבר למה ותאר מה היה חלקך במחקר.'},{c:'cre',t:'בן-גוריון דמיון',q:'אם יכולת לדבר עם חיידקי שפעת, מה היית שואל אותם?'},{c:'cre',t:'בן-גוריון דמיון',q:'אם היית יכול לדבר עם חיידק בגוף, עם איזה היית מדבר ולמה?'},{c:'cre',t:'בן-גוריון חלל',q:'דמיין שאתה חלק ממשלחת אסטרונאוטים לתחנת החלל ארטמיס. איזה תחום היית בוחר לחקור, למה, איזה תפקיד היית לוקח במחקר, ולמה הוא חשוב?'},{c:'cre',t:'בן-גוריון עתיד',q:'אם נשתגר לכנס רפואי בשנת 2106 — אילו פריצות דרך טכנולוגיות ואתיות יעמדו במרכז הבמה? מה יהיו כותרות ההרצאות שיגדירו מחדש את המושג "בריאות" במאה הבאה?'},{c:'cre',t:'בן-גוריון מיקרוביום',q:'אילו חיידקים היו יכולים לענות, מה היית שואל אותם לגבי התפקיד שלהם בעולם? האם לדעתך הם רואים בנו "בית", "אוכל", או אולי משהו אחר? איך השאלה הזו משנה את הדרך שבה אנחנו חוקרים מחלות היום?'},{c:'cre',t:'בן-גוריון אריכות ימים',q:'אם היינו יכולים להציץ לנתוני האוכלוסייה של שנת 2100 — מה לדעתך יהיה אחוז האנשים שיגיעו לגיל 120, ומי הם יהיו? הסבר לא רק איזו טכנולוגיה רפואית תביא אותם לשם, אלא גם איזה מחיר חברתי או אישי נשלם כדי שגיל כזה יהיה אפשרי.'}];
 const CN={bio:'ביוגרפי',vid:'וידאו',sit:'סיטואציה',dil:'דילמה',cre:'יצירתית'};
