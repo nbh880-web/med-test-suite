@@ -398,7 +398,44 @@ function App(){
         if(db&&h.id){try{await db.collection('evaluations').doc(h.id).update({starred:newVal})}catch(e){}}
     };
 
-    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});const f=firebase.firestore();setDb(f);f.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)});f.collection('evaluations').orderBy('timestamp','desc').limit(100).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)})}catch(e){}}});},[]);
+    useEffect(()=>{
+    fetch('/api/keys').then(r=>r.json()).then(d=>{
+        console.log('[DEBUG] Keys loaded:', d);
+        setKeys(d);
+        if(d.FIREBASE){
+            console.log('[DEBUG] FIREBASE key exists, initializing Firebase...');
+            try{
+                if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});
+                const f=firebase.firestore();
+                setDb(f);
+                console.log('[DEBUG] Firestore connected. Loading custom questions...');
+                f.collection('customQuestions').orderBy('created','desc').get().then(s=>{
+                    const q=[];
+                    s.forEach(d=>q.push({id:d.id,...d.data()}));
+                    console.log('[DEBUG] Loaded custom questions:', q.length);
+                    setCQs(q);
+                }).catch(err=>{
+                    console.error('[DEBUG] Error loading custom questions:', err);
+                });
+                console.log('[DEBUG] Loading evaluations history...');
+                f.collection('evaluations').orderBy('timestamp','desc').limit(100).get().then(s=>{
+                    const h=[];
+                    s.forEach(d=>h.push({id:d.id,...d.data()}));
+                    console.log('[DEBUG] Loaded evaluations:', h.length);
+                    setHist(h);
+                }).catch(err=>{
+                    console.error('[DEBUG] Error loading evaluations:', err);
+                });
+            }catch(e){
+                console.error('[DEBUG] Firebase init error:', e);
+            }
+        } else {
+            console.warn('[DEBUG] FIREBASE key is missing from /api/keys!');
+        }
+    }).catch(err=>{
+        console.error('[DEBUG] Failed to fetch /api/keys:', err);
+    });
+},[]);
     useEffect(()=>{if(!tOn)return;const iv=setInterval(()=>setTimer(t=>{if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1}),1000);return()=>clearInterval(iv)},[tOn,tMode]);
     useEffect(()=>{if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
     const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
