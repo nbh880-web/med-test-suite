@@ -29,6 +29,11 @@
 <script type="text/babel">
 const {useState,useEffect,useRef,Fragment}=React;
 
+// ===== חלון דיווחי בעיות (לבדיקה — קל להסרה בסוף) =====
+var LOGBUF=[];var logSub=null;
+function LOG(type,msg){try{var e={ts:new Date().toLocaleTimeString('he-IL'),type:type,msg:(typeof msg==='string'?msg:JSON.stringify(msg))};LOGBUF.push(e);if(LOGBUF.length>200)LOGBUF.shift();if(logSub)logSub(LOGBUF.slice());}catch(_){}}
+// ===== סוף חלון דיווחי בעיות =====
+
 const UNIS={
 mor:{name:'מו"ר / מרק"ם',limit:1000,format:'סעיפים, 7-10 שורות כתב יד',desc:'מרכז הערכה עם 6 תחנות (ראיון, דיון במקרה, סימולציה) + שאלון אישי-ביוגרפי ממוחשב (175 דקות) + שאלון שאו"ל.',traits:'אמפתיה, תקשורת בין-אישית, עבודת צוות, שיקול דעת אתי, בשלות רגשית, כנות וענווה, יכולת למידה מטעויות',tip:'בנה מאגר של 10-12 סיפורים מהחיים. מצב, פעולה אקטיבית, תוצאה, לקח ספציפי. בלי חזרה על סיפור בין שאלות.'},
 bgu:{name:'בן-גוריון',limit:1200,format:'פסקה שלמה, עד 350 מילים',desc:'5 ממדי הערכה: קוגניציה, בגרות רגשית, יחסים בינאישיים, מוסר פנימי, מוסר עבודה. גם ביוגרפי וגם שאלה יצירתית.',traits:'מודעות עצמית, אמפתיה, יושרה, יוזמה, התמדה, יכולת ביטוי, גמישות מחשבתית, רגישות חברתית',tip:'תחשוב בסעיפים מנטלית אבל כתוב כפסקה רציפה. בשאלה היצירתית — שלב דמיון עם חשיבה רפואית מבוססת.'},
@@ -353,6 +358,7 @@ function App(){
     const [view,setView]=useState('home');const [keys,setKeys]=useState(null);const [db,setDb]=useState(null);const [uni,setUni]=useState('tzfat');
     const [user,setUser]=useState(null);const [authReady,setAuthReady]=useState(false);
     const [authEmail,setAuthEmail]=useState('');const [authPass,setAuthPass]=useState('');const [authErr,setAuthErr]=useState('');const [authBusy,setAuthBusy]=useState(false);
+    const [logs,setLogs]=useState([]);const [showLog,setShowLog]=useState(false);
     const [qIdx,setQIdx]=useState(null);const [text,setText]=useState('');const [loading,setLoading]=useState(false);const [results,setResults]=useState(null);const [tab,setTab]=useState('claude');
     const [chat,setChat]=useState([]);const [mLd,setMLd]=useState(false);const [isMartinRec,setIsMartinRec]=useState(false);const [martinFB,setMartinFB]=useState(null);
     const mRecRef=useRef(null);const aChRef=useRef([]);const curARef=useRef(null);const ceRef=useRef(null);
@@ -401,11 +407,12 @@ function App(){
         if(db&&h.id){try{await db.collection('evaluations').doc(h.id).update({starred:newVal})}catch(e){}}
     };
 
-    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});setDb(firebase.firestore());firebase.auth().onAuthStateChanged(u=>{setUser(u);setAuthReady(true)})}catch(e){setAuthReady(true)}}else{setAuthReady(true)}}).catch(()=>setAuthReady(true));},[]);
-    useEffect(()=>{if(!db||!user)return;db.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)}).catch(()=>{});db.collection('evaluations').orderBy('timestamp','desc').limit(100).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)}).catch(()=>{});},[db,user]);
+    useEffect(()=>{logSub=setLogs;setLogs(LOGBUF.slice());var oe=function(ev){LOG('error','JS: '+(ev&&ev.message?ev.message:ev&&ev.type))};var or=function(ev){var r=ev&&ev.reason;LOG('error','Promise: '+(r&&r.message?r.message:r))};window.addEventListener('error',oe);window.addEventListener('unhandledrejection',or);LOG('info','האתר נטען');return function(){logSub=null;window.removeEventListener('error',oe);window.removeEventListener('unhandledrejection',or)}},[]);
+    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);LOG('info','מפתחות נטענו — Claude:'+(d.CLAUDE?'✓':'✗ חסר')+' Gemini:'+(d.GEMINI?'✓':'✗ חסר')+' GPT:'+(d.GPT?'✓':'✗ חסר')+' Firebase:'+(d.FIREBASE?'✓':'✗ חסר'));if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});setDb(firebase.firestore());LOG('info','Firebase אותחל');firebase.auth().onAuthStateChanged(u=>{setUser(u);setAuthReady(true);LOG('info',u?('מחובר: '+(u.email||'')):'אין משתמש מחובר')})}catch(e){setAuthReady(true);LOG('error','אתחול Firebase נכשל: '+(e.message||e))}}else{setAuthReady(true);LOG('error','מפתח FIREBASE חסר מהשרת')}}).catch(e=>{setAuthReady(true);LOG('error','שגיאת /api/keys: '+(e.message||e))});},[]);
+    useEffect(()=>{if(!db||!user)return;LOG('info','טוען נתונים…');db.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q);LOG('ok','שאלות מותאמות נטענו: '+q.length)}).catch(e=>LOG('error','טעינת שאלות נכשלה: '+(e.code||'')+' — '+(e.message||e)));db.collection('evaluations').orderBy('timestamp','desc').limit(100).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h);LOG('ok','היסטוריה נטענה: '+h.length+' רשומות')}).catch(e=>LOG('error','טעינת היסטוריה נכשלה: '+(e.code||'')+' — '+(e.message||e)));},[db,user]);
     useEffect(()=>{if(!tOn)return;const iv=setInterval(()=>setTimer(t=>{if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1}),1000);return()=>clearInterval(iv)},[tOn,tMode]);
     useEffect(()=>{if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
-    const doLogin=async()=>{setAuthErr('');if(!authEmail.trim()||!authPass){setAuthErr('יש להזין אימייל וסיסמה');return}setAuthBusy(true);try{await firebase.auth().signInWithEmailAndPassword(authEmail.trim(),authPass)}catch(e){const c=e.code||'';let m='שגיאת התחברות, נסה שוב';if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0||c.indexOf('invalid-login')>=0)m='אימייל או סיסמה שגויים';else if(c.indexOf('user-not-found')>=0)m='משתמש לא נמצא';else if(c.indexOf('invalid-email')>=0)m='כתובת אימייל לא תקינה';else if(c.indexOf('too-many-requests')>=0)m='יותר מדי ניסיונות. נסה שוב בעוד כמה דקות';else if(c.indexOf('network')>=0)m='בעיית רשת, בדוק את החיבור';setAuthErr(m)}setAuthBusy(false)};
+    const doLogin=async()=>{setAuthErr('');if(!authEmail.trim()||!authPass){setAuthErr('יש להזין אימייל וסיסמה');return}setAuthBusy(true);try{await firebase.auth().signInWithEmailAndPassword(authEmail.trim(),authPass)}catch(e){const c=e.code||'';let m='שגיאת התחברות, נסה שוב';if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0||c.indexOf('invalid-login')>=0)m='אימייל או סיסמה שגויים';else if(c.indexOf('user-not-found')>=0)m='משתמש לא נמצא';else if(c.indexOf('invalid-email')>=0)m='כתובת אימייל לא תקינה';else if(c.indexOf('too-many-requests')>=0)m='יותר מדי ניסיונות. נסה שוב בעוד כמה דקות';else if(c.indexOf('network')>=0)m='בעיית רשת, בדוק את החיבור';LOG('error','כניסה נכשלה: '+c);setAuthErr(m)}setAuthBusy(false)};
     const doLogout=()=>{try{firebase.auth().signOut()}catch(e){}setView('home');setHistDetail(null)};
     const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
 
@@ -432,25 +439,25 @@ function App(){
                 const mime=blob.type||'audio/mp4';
                 const tRes=await fetch('/api/transcribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({audioBase64:base64data,mimeType:mime})});
                 const tData=await tRes.json();
-                if(!tRes.ok){alert('שגיאת תמלול: '+(tData.error||''));setMLd(false);return}
+                if(!tRes.ok){LOG('error','מרטין/תמלול נכשל: '+(tData.error||tRes.status));alert('שגיאת תמלול: '+(tData.error||''));setMLd(false);return}
                 if(!tData.transcript||tData.transcript.trim().length<2){alert('לא שמעתי בבירור.');setMLd(false);return}
                 const userText=tData.transcript;
                 setChat(p=>[...p,{role:'user',text:userText}]);
                 const mRes=await fetch('/api/martin-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userText:userText,chatHistory:[...chat,{role:'user',text:userText}],uni:UNIS[uni].name})});
                 const mData=await mRes.json();
-                if(!mRes.ok||mData.error){alert('מרטין: '+(mData.error||''));setMLd(false);return}
-                setChat(p=>[...p,{role:'martin',text:mData.martinText}]);
+                if(!mRes.ok||mData.error){LOG('error','מרטין/תשובה נכשלה: '+(mData.error||mRes.status));alert('מרטין: '+(mData.error||''));setMLd(false);return}
+                setChat(p=>[...p,{role:'martin',text:mData.martinText}]);LOG('ok','מרטין ענה');
                 if(mData.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+mData.audioBase64);curARef.current=snd;snd.play()}else{speakTTS(mData.martinText)}
                 setMLd(false);
             };
-        }catch(e){alert('שגיאה: '+e.message);setMLd(false)}
+        }catch(e){LOG('error','מרטין קולי — שגיאה: '+e.message);alert('שגיאה: '+e.message);setMLd(false)}
     };
 
     const speakHebrew=(text)=>{if('speechSynthesis' in window){window.speechSynthesis.cancel();const ut=new SpeechSynthesisUtterance(text);ut.lang='he-IL';ut.rate=1.0;window.speechSynthesis.speak(ut)}};
     const speakTTS=async(text)=>{try{const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});const d=await r.json();if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}else{speakHebrew(text)}}catch(e){speakHebrew(text)}};
     const startMartin=()=>{const q=allQ[Math.floor(Math.random()*allQ.length)];const opening='\u05E9\u05DC\u05D5\u05DD, \u05D0\u05E0\u05D9 \u05DE\u05E8\u05D8\u05D9\u05DF. \u05D0\u05E0\u05D9 \u05DE\u05E8\u05D0\u05D9\u05D9\u05DF \u05D4\u05D9\u05D5\u05DD \u05D1\u05DE\u05D9\u05D5\u05E0\u05D9 \u05D4\u05E7\u05D1\u05DC\u05D4 \u05DC'+UNIS[uni].name+'. \u05D1\u05D5\u05D0 \u05E0\u05EA\u05D7\u05D9\u05DC. '+q.q;setChat([{role:'martin',text:opening}]);setMartinFB(null);setView('martin');setTimeout(()=>speakTTS(opening),500)};
 
-    const endInterview=async()=>{if(chat.length<2){alert('קצר מדי.');return}setMLd(true);try{const tr=chat.map(m=>(m.role==='martin'?'מראיין':'מועמד')+': '+m.text).join('\n');const res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:tr,system:COMMITTEE})});const d=await res.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const p=pj(t);if(p)setMartinFB(p);else alert('שגיאה בפענוח.')}catch(e){alert('שגיאה.')}finally{setMLd(false)}};
+    const endInterview=async()=>{if(chat.length<2){alert('קצר מדי.');return}setMLd(true);try{const tr=chat.map(m=>(m.role==='martin'?'מראיין':'מועמד')+': '+m.text).join('\n');const res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:tr,system:COMMITTEE})});const d=await res.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const p=pj(t);if(p){setMartinFB(p);LOG('ok','סיכום ראיון מרטין התקבל')}else{LOG('error','סיכום ראיון — פענוח JSON נכשל');alert('שגיאה בפענוח.')}}catch(e){LOG('error','סיכום ראיון נכשל: '+(e.message||e));alert('שגיאה.')}finally{setMLd(false)}};
 
     const analyze=async()=>{
         if(text.length<20){alert('כתוב תשובה מלאה.');return}
@@ -463,6 +470,7 @@ function App(){
         const limStr=limNum+' '+(limMode==='words'?'מילים':'תווים');
         const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nLimit: '+limStr+'\nTraits: '+uI.traits+'\n'+(qText?'Question: '+qText+'\n':'')+'\nType: '+(isCreative?'CREATIVE-IMAGINATIVE':'BIOGRAPHICAL')+'\nAnswer:\n'+text;
         try{
+            LOG('info','מתחיל ניתוח כתוב — מנועים: '+[keys.CLAUDE&&'Claude',keys.GEMINI&&'Gemini',keys.GPT&&'GPT'].filter(Boolean).join(', '));
             const pr=[];
             if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:activeRubric})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){const e=typeof d.error==='string'?d.error:(d.error?.message||JSON.stringify(d.error));return{s:'c',d:null,err:e}}return{s:'c',d}}).catch(e=>({s:'c',d:null,err:e.message})));
             if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:activeRubric})}).then(async r=>{const d=await r.json();if(!r.ok||d.error){const e=typeof d.error==='string'?d.error:(d.error?.message||JSON.stringify(d.error));return{s:'g',d:null,err:e}}return{s:'g',d}}).catch(e=>({s:'g',d:null,err:e.message})));
@@ -479,6 +487,8 @@ function App(){
                     if(v.s==='o')P.gpt=pj(v.d.choices?.[0]?.message?.content||'');
                 }catch(e){errors.push('Parse error: '+e.message)}});
             setResults(P);
+            LOG('info','תוצאות ניתוח — Claude:'+(P.claude?'התקבל':'ריק')+' / Gemini:'+(P.gemini?'התקבל':'ריק')+' / GPT:'+(P.gpt?'התקבל':'ריק'));
+            if(errors.length>0)LOG('error','שגיאות ניתוח: '+errors.join(' | '));
             if(P.claude)setTab('claude');else if(P.gemini)setTab('gemini');else if(P.gpt)setTab('gpt');
             if(errors.length>0)alert('שגיאות:\n'+errors.join('\n'));
 
@@ -492,8 +502,8 @@ function App(){
                     const qCat=qIdx!==null?allQ[qIdx].c:'';
                     await db.collection('evaluations').add({content:text,question:qText,qCategory:qCat,uni:uni,scores:scores,avgScore:avg,claudeResult:P.claude||null,geminiResult:P.gemini||null,gptResult:P.gpt||null,timestamp:firebase.firestore.FieldValue.serverTimestamp()});
                     const snap=await db.collection('evaluations').orderBy('timestamp','desc').limit(100).get();
-                    const h=[];snap.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h);
-                }catch(e){}
+                    const h=[];snap.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h);LOG('ok','התוצאה נשמרה להיסטוריה ('+h.length+' רשומות)');
+                }catch(e){LOG('error','שמירה להיסטוריה נכשלה: '+(e.code||'')+' — '+(e.message||e))}
             }
         }catch(e){alert('שגיאה.')}finally{setLoading(false)}
     };
@@ -501,9 +511,26 @@ function App(){
     const addCQ=()=>{if(!nq.q.trim())return;const n={c:nq.c,t:nq.t||'מותאם',q:nq.q.trim(),custom:true};setCQs(p=>[...p,n]);if(db)db.collection('customQuestions').add({...n,created:firebase.firestore.FieldValue.serverTimestamp()});setNq({c:'bio',t:'',q:''});setShowAQ(false)};
     const delCQ=i=>{const q=cQs[i];setCQs(p=>p.filter((_,j)=>j!==i));if(db&&q.id)db.collection('customQuestions').doc(q.id).delete()};
 
+    const debugUI=(<Fragment>
+        <button onClick={()=>setShowLog(v=>!v)} title="דיווחי בעיות" style={{position:'fixed',bottom:14,right:14,zIndex:9999,background:'#0f172a',color:'#fff',fontWeight:800,fontSize:12,padding:'8px 12px',borderRadius:20,boxShadow:'0 4px 14px rgba(0,0,0,.25)',border:'none',cursor:'pointer'}}>דיווחים{logs.filter(l=>l.type==='error').length>0?' ('+logs.filter(l=>l.type==='error').length+')':''}</button>
+        {showLog&&<div style={{position:'fixed',bottom:62,right:14,zIndex:9999,width:'min(380px,92vw)',maxHeight:'55vh',background:'#0f172a',color:'#e2e8f0',borderRadius:14,boxShadow:'0 8px 30px rgba(0,0,0,.4)',display:'flex',flexDirection:'column',overflow:'hidden'}}>
+            <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'10px 12px',borderBottom:'1px solid #334155'}}>
+                <span style={{fontWeight:800,fontSize:13}}>דיווחי בעיות ({logs.length})</span>
+                <div style={{display:'flex',gap:6}}>
+                    <button onClick={()=>{var txt=logs.map(l=>'['+l.ts+'] '+l.type+': '+l.msg).join('\n');try{navigator.clipboard.writeText(txt);LOG('info','הלוג הועתק ללוח')}catch(_){}}} style={{background:'#1d4ed8',color:'#fff',border:'none',borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>העתק</button>
+                    <button onClick={()=>{LOGBUF.length=0;setLogs([])}} style={{background:'#334155',color:'#fff',border:'none',borderRadius:8,padding:'4px 10px',fontSize:11,fontWeight:700,cursor:'pointer'}}>נקה</button>
+                    <button onClick={()=>setShowLog(false)} style={{background:'transparent',color:'#94a3b8',border:'none',fontSize:16,cursor:'pointer',lineHeight:1}}>✕</button>
+                </div>
+            </div>
+            <div className="sc" style={{overflowY:'auto',padding:'8px 12px',fontSize:11,lineHeight:1.6,direction:'ltr',textAlign:'left'}}>
+                {logs.length===0?<div style={{color:'#64748b'}}>אין דיווחים עדיין…</div>:logs.map((l,i)=><div key={i} style={{color:l.type==='error'?'#fca5a5':(l.type==='ok'?'#86efac':'#cbd5e1'),marginBottom:4,whiteSpace:'pre-wrap',wordBreak:'break-word'}}>[{l.ts}] {l.msg}</div>)}
+            </div>
+        </div>}
+    </Fragment>);
+
     if(!keys||!authReady)return <div className="flex flex-col items-center justify-center min-h-screen gap-3"><span className="ld" style={{width:32,height:32}}></span><div className="text-slate-400 font-bold text-sm">מתחבר...</div></div>;
 
-    if(!user)return(<div className="min-h-screen flex flex-col items-center justify-center px-4">
+    if(!user)return(<div className="min-h-screen flex flex-col items-center justify-center px-4">{debugUI}
         <div className="w-full max-w-sm bg-white rounded-3xl border shadow-sm p-8 fi">
             <div className="flex flex-col items-center mb-6">
                 <div className="w-14 h-14 bg-orange-800 text-white rounded-2xl flex items-center justify-center font-black text-2xl mb-3">M</div>
@@ -520,7 +547,7 @@ function App(){
         </div>
     </div>);
 
-    return(<div className="min-h-screen flex flex-col">
+    return(<div className="min-h-screen flex flex-col">{debugUI}
         <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}<button onClick={doLogout} title="התנתק" className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">יציאה</button></div></header>
         <main className="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
 
