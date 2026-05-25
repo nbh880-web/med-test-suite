@@ -10,6 +10,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
         body{font-family:'Heebo',sans-serif;background:#f8fafc;color:#0f172a}
@@ -350,6 +351,8 @@ function RC({data,name}){if(!data)return <div className="p-6 bg-white rounded-2x
 
 function App(){
     const [view,setView]=useState('home');const [keys,setKeys]=useState(null);const [db,setDb]=useState(null);const [uni,setUni]=useState('tzfat');
+    const [user,setUser]=useState(null);const [authReady,setAuthReady]=useState(false);
+    const [authEmail,setAuthEmail]=useState('');const [authPass,setAuthPass]=useState('');const [authErr,setAuthErr]=useState('');const [authBusy,setAuthBusy]=useState(false);
     const [qIdx,setQIdx]=useState(null);const [text,setText]=useState('');const [loading,setLoading]=useState(false);const [results,setResults]=useState(null);const [tab,setTab]=useState('claude');
     const [chat,setChat]=useState([]);const [mLd,setMLd]=useState(false);const [isMartinRec,setIsMartinRec]=useState(false);const [martinFB,setMartinFB]=useState(null);
     const mRecRef=useRef(null);const aChRef=useRef([]);const curARef=useRef(null);const ceRef=useRef(null);
@@ -398,9 +401,12 @@ function App(){
         if(db&&h.id){try{await db.collection('evaluations').doc(h.id).update({starred:newVal})}catch(e){}}
     };
 
-    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});const f=firebase.firestore();setDb(f);f.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)});f.collection('evaluations').orderBy('timestamp','desc').limit(100).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)})}catch(e){}}});},[]);
+    useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});setDb(firebase.firestore());firebase.auth().onAuthStateChanged(u=>{setUser(u);setAuthReady(true)})}catch(e){setAuthReady(true)}}else{setAuthReady(true)}}).catch(()=>setAuthReady(true));},[]);
+    useEffect(()=>{if(!db||!user)return;db.collection('customQuestions').orderBy('created','desc').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));setCQs(q)}).catch(()=>{});db.collection('evaluations').orderBy('timestamp','desc').limit(100).get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));setHist(h)}).catch(()=>{});},[db,user]);
     useEffect(()=>{if(!tOn)return;const iv=setInterval(()=>setTimer(t=>{if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1}),1000);return()=>clearInterval(iv)},[tOn,tMode]);
     useEffect(()=>{if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
+    const doLogin=async()=>{setAuthErr('');if(!authEmail.trim()||!authPass){setAuthErr('יש להזין אימייל וסיסמה');return}setAuthBusy(true);try{await firebase.auth().signInWithEmailAndPassword(authEmail.trim(),authPass)}catch(e){const c=e.code||'';let m='שגיאת התחברות, נסה שוב';if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0||c.indexOf('invalid-login')>=0)m='אימייל או סיסמה שגויים';else if(c.indexOf('user-not-found')>=0)m='משתמש לא נמצא';else if(c.indexOf('invalid-email')>=0)m='כתובת אימייל לא תקינה';else if(c.indexOf('too-many-requests')>=0)m='יותר מדי ניסיונות. נסה שוב בעוד כמה דקות';else if(c.indexOf('network')>=0)m='בעיית רשת, בדוק את החיבור';setAuthErr(m)}setAuthBusy(false)};
+    const doLogout=()=>{try{firebase.auth().signOut()}catch(e){}setView('home');setHistDetail(null)};
     const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
 
     const togRec=()=>{if(isRec&&recO){recO.stop();setIsRec(false);setRecO(null);return}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){alert('השתמש בכרום.');return}const r=new SR();r.lang='he-IL';r.continuous=true;r.onresult=e=>{let f='';for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal)f+=e.results[i][0].transcript+' ';if(f)setText(p=>p+' '+f)};r.onerror=()=>{setIsRec(false);setRecO(null)};r.onend=()=>{setIsRec(false);setRecO(null)};r.start();setIsRec(true);setRecO(r)};
@@ -495,10 +501,27 @@ function App(){
     const addCQ=()=>{if(!nq.q.trim())return;const n={c:nq.c,t:nq.t||'מותאם',q:nq.q.trim(),custom:true};setCQs(p=>[...p,n]);if(db)db.collection('customQuestions').add({...n,created:firebase.firestore.FieldValue.serverTimestamp()});setNq({c:'bio',t:'',q:''});setShowAQ(false)};
     const delCQ=i=>{const q=cQs[i];setCQs(p=>p.filter((_,j)=>j!==i));if(db&&q.id)db.collection('customQuestions').doc(q.id).delete()};
 
-    if(!keys)return <div className="flex flex-col items-center justify-center min-h-screen gap-3"><span className="ld" style={{width:32,height:32}}></span><div className="text-slate-400 font-bold text-sm">מתחבר...</div></div>;
+    if(!keys||!authReady)return <div className="flex flex-col items-center justify-center min-h-screen gap-3"><span className="ld" style={{width:32,height:32}}></span><div className="text-slate-400 font-bold text-sm">מתחבר...</div></div>;
+
+    if(!user)return(<div className="min-h-screen flex flex-col items-center justify-center px-4">
+        <div className="w-full max-w-sm bg-white rounded-3xl border shadow-sm p-8 fi">
+            <div className="flex flex-col items-center mb-6">
+                <div className="w-14 h-14 bg-orange-800 text-white rounded-2xl flex items-center justify-center font-black text-2xl mb-3">M</div>
+                <h1 className="text-2xl font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1>
+                <p className="text-sm text-slate-400 font-bold mt-1">התחברות למערכת</p>
+            </div>
+            <div className="space-y-3">
+                <input type="email" dir="ltr" autoComplete="username" value={authEmail} onChange={e=>setAuthEmail(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')doLogin()}} placeholder="אימייל" className="w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm"/>
+                <input type="password" dir="ltr" autoComplete="current-password" value={authPass} onChange={e=>setAuthPass(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')doLogin()}} placeholder="סיסמה" className="w-full bg-slate-50 border rounded-xl px-4 py-3 text-sm"/>
+                {authErr&&<div className="text-red-600 text-xs font-bold text-center bg-red-50 rounded-lg py-2 px-3">{authErr}</div>}
+                <button onClick={doLogin} disabled={authBusy} className="w-full bg-orange-700 text-white font-black py-3 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">{authBusy?<span className="ld" style={{borderTopColor:'#fff',width:18,height:18}}></span>:'כניסה'}</button>
+            </div>
+            <p className="text-center text-slate-300 font-bold mt-5" style={{fontSize:11}}>גישה אישית ומאובטחת</p>
+        </div>
+    </div>);
 
     return(<div className="min-h-screen flex flex-col">
-        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}</div></header>
+        <header className="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b px-4 py-3 flex justify-between items-center"><div className="flex items-center gap-3 cursor-pointer" onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}}><div className="w-8 h-8 bg-orange-800 text-white rounded-lg flex items-center justify-center font-black">M</div><h1 className="text-lg font-black text-slate-800">Med-Test <span className="text-orange-700">Pro</span></h1></div><div className="flex items-center gap-2">{view!=='home'&&<select value={uni} onChange={e=>setUni(e.target.value)} className="bg-slate-100 border text-xs font-bold py-2 px-3 rounded-full">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>}{view!=='home'&&<button onClick={()=>{setView('home');setTOn(false);setHistDetail(null)}} className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">&#8962;</button>}<button onClick={doLogout} title="התנתק" className="bg-slate-100 text-slate-500 text-xs font-bold py-2 px-3 rounded-full">יציאה</button></div></header>
         <main className="flex-1 p-4 md:p-6 max-w-6xl mx-auto w-full">
 
         {view==='histDetail'&&histDetail&&<div className="max-w-3xl mx-auto fi">
