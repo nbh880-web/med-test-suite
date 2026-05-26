@@ -385,7 +385,8 @@ function App(){
     const [bios,setBios]=useState([]);
     const [bioUni,setBioUni]=useState('tzfat');
     const [bioMainQ,setBioMainQ]=useState('');
-    const [bioSecs,setBioSecs]=useState([{sub:'',ans:''}]);
+    const [bioMainAns,setBioMainAns]=useState('');
+    const [bioSecs,setBioSecs]=useState([]);
     const [bioBusy,setBioBusy]=useState(false);
     const [bioEditId,setBioEditId]=useState(null);
     const [bioFilterUni,setBioFilterUni]=useState('all');
@@ -429,18 +430,20 @@ function App(){
     const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
 
     // ===== פונקציות "התשובות שלי" =====
-    const bioReset=()=>{setBioMainQ('');setBioSecs([{sub:'',ans:''}]);setBioEditId(null);setBioUni(uni)};
+    const bioReset=()=>{setBioMainQ('');setBioMainAns('');setBioSecs([]);setBioEditId(null);setBioUni(uni)};
     const bioAddSec=()=>setBioSecs(p=>[...p,{sub:'',ans:''}]);
-    const bioDelSec=(i)=>setBioSecs(p=>p.length>1?p.filter((_,x)=>x!==i):p);
+    const bioDelSec=(i)=>setBioSecs(p=>p.filter((_,x)=>x!==i));
     const bioSetSec=(i,f,v)=>setBioSecs(p=>p.map((s,x)=>x===i?{...s,[f]:v}:s));
-    const bioEdit=(b)=>{setBioEditId(b.id);setBioUni(b.uni||'tzfat');setBioMainQ(b.mainQ||'');setBioSecs(b.sections&&b.sections.length?b.sections:[{sub:'',ans:''}]);setView('bios');window.scrollTo(0,0)};
+    const bioEdit=(b)=>{setBioEditId(b.id);setBioUni(b.uni||'tzfat');setBioMainQ(b.mainQ||'');setBioMainAns(b.mainAns||'');setBioSecs(b.sections||[]);setView('bios');window.scrollTo(0,0)};
     const bioSave=async()=>{
         if(!bioMainQ.trim()){alert('כתוב את השאלה הראשית.');return}
-        if(!bioSecs.some(s=>s.ans.trim())){alert('כתוב לפחות תשובה אחת.');return}
+        const hasSecs=bioSecs.length>0;
+        if(hasSecs){if(!bioSecs.some(s=>s.ans.trim())){alert('כתוב תשובה לפחות בסעיף אחד.');return}}
+        else if(!bioMainAns.trim()){alert('כתוב תשובה.');return}
         if(!db){alert('אין חיבור למסד.');return}
         setBioBusy(true);
         const clean=bioSecs.filter(s=>s.sub.trim()||s.ans.trim());
-        const rec={uni:bioUni,mainQ:bioMainQ.trim(),sections:clean,created:firebase.firestore.FieldValue.serverTimestamp()};
+        const rec={uni:bioUni,mainQ:bioMainQ.trim(),mainAns:hasSecs?'':bioMainAns.trim(),sections:clean,created:firebase.firestore.FieldValue.serverTimestamp()};
         try{
             if(bioEditId){await db.collection('bioAnswers').doc(bioEditId).set(rec,{merge:true});LOG('ok','תשובה עודכנה')}
             else{await db.collection('bioAnswers').add(rec);LOG('ok','תשובה נשמרה')}
@@ -450,7 +453,7 @@ function App(){
         setBioBusy(false);
     };
     const bioDel=async(id)=>{if(!confirm('למחוק את התשובה?'))return;try{await db.collection('bioAnswers').doc(id).delete();setBios(p=>p.filter(b=>b.id!==id));LOG('ok','תשובה נמחקה')}catch(e){LOG('error','מחיקה נכשלה: '+(e.message||e))}};
-    const bioText=(b)=>{let t='שאלה: '+(b.mainQ||'')+'\n';(b.sections||[]).forEach(s=>{if(s.sub.trim())t+='\nתת-שאלה: '+s.sub+'\n';t+='תשובה: '+s.ans+'\n'});return t.trim()};
+    const bioText=(b)=>{let t='שאלה: '+(b.mainQ||'')+'\n';if(b.sections&&b.sections.length){(b.sections||[]).forEach(s=>{if(s.sub.trim())t+='\nתת-שאלה: '+s.sub+'\n';t+='תשובה: '+s.ans+'\n'})}else{t+='תשובה: '+(b.mainAns||'')+'\n'}return t.trim()};
     const bioAnalyze=async(b)=>{
         const uI=UNIS[b.uni]||UNIS.tzfat;const answerText=bioText(b);
         if(answerText.length<20){alert('התשובה קצרה מדי לניתוח.');return}
@@ -630,14 +633,18 @@ function App(){
                 <select value={bioUni} onChange={e=>setBioUni(e.target.value)} className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm mb-3 font-bold">{Object.entries(UNIS).map(([k,v])=><option key={k} value={k}>{v.name}</option>)}</select>
                 <label className="text-xs font-bold text-slate-500 block mb-1">השאלה הראשית</label>
                 <textarea value={bioMainQ} onChange={e=>setBioMainQ(e.target.value)} dir="rtl" rows="2" placeholder="למשל: ספר על מקרה שבו התמודדת עם לחץ" className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm mb-4 resize-y"/>
+                {bioSecs.length===0&&<Fragment>
+                    <label className="text-xs font-bold text-slate-500 block mb-1">התשובה שלי</label>
+                    <textarea value={bioMainAns} onChange={e=>setBioMainAns(e.target.value)} dir="rtl" rows="4" placeholder="כתוב כאן את התשובה הביוגרפית שלך" className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm mb-4 resize-y"/>
+                </Fragment>}
                 <div className="space-y-3 mb-3">
                     {bioSecs.map((s,i)=><div key={i} className="bg-slate-50 rounded-xl p-3 border">
-                        <div className="flex justify-between items-center mb-2"><span className="text-xs font-black text-orange-700">סעיף {i+1}</span>{bioSecs.length>1&&<button onClick={()=>bioDelSec(i)} className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded font-bold">&#128465; הסר</button>}</div>
+                        <div className="flex justify-between items-center mb-2"><span className="text-xs font-black text-orange-700">סעיף {i+1}</span><button onClick={()=>bioDelSec(i)} className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded font-bold">&#128465; הסר</button></div>
                         <input value={s.sub} onChange={e=>bioSetSec(i,'sub',e.target.value)} dir="rtl" placeholder="תת-שאלה (למשל: מה קרה?)" className="w-full bg-white border rounded-lg px-3 py-2 text-sm mb-2"/>
                         <textarea value={s.ans} onChange={e=>bioSetSec(i,'ans',e.target.value)} dir="rtl" rows="3" placeholder="התשובה שלך לתת-שאלה זו" className="w-full bg-white border rounded-lg px-3 py-2 text-sm resize-y"/>
                     </div>)}
                 </div>
-                <button onClick={bioAddSec} className="w-full text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200 py-2 rounded-xl mb-4">&#10133; הוסף סעיף</button>
+                <button onClick={()=>{if(bioSecs.length===0&&bioMainAns.trim()){setBioSecs([{sub:'',ans:bioMainAns.trim()}]);setBioMainAns('')}else{bioAddSec()}}} className="w-full text-sm font-bold text-orange-700 bg-orange-50 border border-orange-200 py-2 rounded-xl mb-4">&#10133; הוסף סעיף</button>
                 <div className="flex gap-2">
                     <button onClick={bioSave} disabled={bioBusy} className="flex-1 bg-orange-700 text-white font-black py-3 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">{bioBusy?<span className="ld" style={{borderTopColor:'#fff',width:18,height:18}}></span>:(bioEditId?'עדכן':'שמור תשובה')}</button>
                     {bioEditId&&<button onClick={bioReset} className="bg-slate-100 text-slate-600 font-bold py-3 px-5 rounded-xl">ביטול</button>}
@@ -656,7 +663,7 @@ function App(){
                         <div className="flex-1"><span className="text-xs font-black text-white bg-orange-700 px-2 py-0.5 rounded-full">{uI.name}</span><p className="text-sm font-bold text-slate-800 mt-2">{b.mainQ}</p></div>
                         {an&&an.avgScore!=null&&<div className="text-center shrink-0"><div className="text-2xl font-black text-orange-700">{an.avgScore}</div><div className="text-[10px] text-slate-400 font-bold">ציון</div></div>}
                     </div>
-                    {(b.sections||[]).map((s,i)=><div key={i} className="text-xs text-slate-600 mb-1 pr-2 border-r-2 border-slate-100">{s.sub&&<span className="font-bold text-slate-500">{s.sub}: </span>}{s.ans}</div>)}
+                    {b.sections&&b.sections.length>0?(b.sections||[]).map((s,i)=><div key={i} className="text-xs text-slate-600 mb-1 pr-2 border-r-2 border-slate-100">{s.sub&&<span className="font-bold text-slate-500">{s.sub}: </span>}{s.ans}</div>):<div className="text-xs text-slate-600 mb-1 pr-2 border-r-2 border-slate-100">{b.mainAns}</div>}
                     <div className="flex gap-2 mt-3 flex-wrap">
                         <button onClick={()=>bioAnalyze(b)} disabled={bioAnalyzing===b.id} className="text-xs font-bold text-white bg-slate-800 px-3 py-1.5 rounded-lg disabled:opacity-50 flex items-center gap-1">{bioAnalyzing===b.id?<Fragment><span className="ld" style={{borderTopColor:'#fff',width:12,height:12}}></span> מנתח...</Fragment>:'\ud83d\udd0d נתח'}</button>
                         <button onClick={()=>bioEdit(b)} className="text-xs font-bold text-orange-700 bg-orange-50 px-3 py-1.5 rounded-lg">&#9998; ערוך</button>
