@@ -634,13 +634,14 @@ function App(){
                 <label className="text-xs font-bold text-slate-500 block mb-1">השאלה הראשית</label>
                 <textarea value={bioMainQ} onChange={e=>setBioMainQ(e.target.value)} dir="rtl" rows="2" placeholder="למשל: ספר על מקרה שבו התמודדת עם לחץ" className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm mb-4 resize-y"/>
                 {bioSecs.length===0&&<Fragment>
-                    <label className="text-xs font-bold text-slate-500 block mb-1">התשובה שלי</label>
+                    <div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-500">התשובה שלי</label>{(()=>{const lim=(UNIS[bioUni]||UNIS.tzfat).limit;const cur=bioMainAns.length;const over=cur>lim;return <span className={'text-xs font-bold '+(over?'text-red-500':'text-slate-400')}>{cur}/{lim} תווים{over&&' ⚠️'}</span>})()}</div>
                     <textarea value={bioMainAns} onChange={e=>setBioMainAns(e.target.value)} dir="rtl" rows="4" placeholder="כתוב כאן את התשובה הביוגרפית שלך" className="w-full bg-slate-50 border rounded-xl px-3 py-2 text-sm mb-4 resize-y"/>
                 </Fragment>}
                 <div className="space-y-3 mb-3">
                     {bioSecs.map((s,i)=><div key={i} className="bg-slate-50 rounded-xl p-3 border">
                         <div className="flex justify-between items-center mb-2"><span className="text-xs font-black text-orange-700">סעיף {i+1}</span><button onClick={()=>bioDelSec(i)} className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded font-bold">&#128465; הסר</button></div>
                         <input value={s.sub} onChange={e=>bioSetSec(i,'sub',e.target.value)} dir="rtl" placeholder="תת-שאלה (למשל: מה קרה?)" className="w-full bg-white border rounded-lg px-3 py-2 text-sm mb-2"/>
+                        <div className="flex justify-end mb-1">{(()=>{const lim=(UNIS[bioUni]||UNIS.tzfat).limit;const cur=s.ans.length;const over=cur>lim;return <span className={'text-xs font-bold '+(over?'text-red-500':'text-slate-400')}>{cur}/{lim} תווים{over&&' ⚠️'}</span>})()}</div>
                         <textarea value={s.ans} onChange={e=>bioSetSec(i,'ans',e.target.value)} dir="rtl" rows="3" placeholder="התשובה שלך לתת-שאלה זו" className="w-full bg-white border rounded-lg px-3 py-2 text-sm resize-y"/>
                     </div>)}
                 </div>
