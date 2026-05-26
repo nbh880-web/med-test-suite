@@ -391,6 +391,12 @@ function App(){
     const [bioEditId,setBioEditId]=useState(null);
     const [bioFilterUni,setBioFilterUni]=useState('all');
     const [bioAnalyzing,setBioAnalyzing]=useState(null);
+    // קורות חיים בן-גוריון: 4 שאלות ביוגרפיות + המלצות (חומר רקע)
+    const [bgCv,setBgCv]=useState([{q:'',a:'',analysis:null},{q:'',a:'',analysis:null},{q:'',a:'',analysis:null},{q:'',a:'',analysis:null}]);
+    const [bgRecs,setBgRecs]=useState('');
+    const [bgCvBusy,setBgCvBusy]=useState(false);
+    const [bgCvAnalyzing,setBgCvAnalyzing]=useState(null);
+    const [bgLoaded,setBgLoaded]=useState(false);
     const allQ=DQ.concat(cQs);const uI=UNIS[uni];
     const filteredQ=allQ.filter(q=>(qFilter==='all'||q.c===qFilter)&&(!qSearch||q.q.includes(qSearch)||q.t?.includes(qSearch)));
     const filteredH=hist.filter(h=>{
@@ -422,12 +428,44 @@ function App(){
 
     useEffect(()=>{logSub=setLogs;setLogs(LOGBUF.slice());var oe=function(ev){LOG('error','JS: '+(ev&&ev.message?ev.message:ev&&ev.type))};var or=function(ev){var r=ev&&ev.reason;LOG('error','Promise: '+(r&&r.message?r.message:r))};window.addEventListener('error',oe);window.addEventListener('unhandledrejection',or);LOG('info','האתר נטען');return function(){logSub=null;window.removeEventListener('error',oe);window.removeEventListener('unhandledrejection',or)}},[]);
     useEffect(()=>{fetch('/api/keys').then(r=>r.json()).then(d=>{setKeys(d);LOG('info','מפתחות נטענו — Claude:'+(d.CLAUDE?'✓':'✗ חסר')+' Gemini:'+(d.GEMINI?'✓':'✗ חסר')+' GPT:'+(d.GPT?'✓':'✗ חסר')+' Firebase:'+(d.FIREBASE?'✓':'✗ חסר'));if(d.FIREBASE){try{if(!firebase.apps.length)firebase.initializeApp({apiKey:d.FIREBASE,projectId:'med-test-nitai'});var _f=firebase.firestore();try{_f.settings({experimentalForceLongPolling:true})}catch(_se){LOG('error','settings נכשל: '+(_se.message||_se))}setDb(_f);LOG('info','Firebase אותחל (long-polling)');firebase.auth().onAuthStateChanged(u=>{setUser(u);setAuthReady(true);LOG('info',u?('מחובר: '+(u.email||'')):'אין משתמש מחובר')})}catch(e){setAuthReady(true);LOG('error','אתחול Firebase נכשל: '+(e.message||e))}}else{setAuthReady(true);LOG('error','מפתח FIREBASE חסר מהשרת')}}).catch(e=>{setAuthReady(true);LOG('error','שגיאת /api/keys: '+(e.message||e))});},[]);
-    useEffect(()=>{if(!db||!user)return;LOG('info','טוען נתונים…');db.collection('customQuestions').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));q.sort((a,b)=>tsv(b.created)-tsv(a.created));setCQs(q);LOG('ok','שאלות מותאמות נטענו: '+q.length+' (fromCache='+s.metadata.fromCache+')')}).catch(e=>LOG('error','טעינת שאלות נכשלה: '+(e.code||'')+' — '+(e.message||e)));db.collection('evaluations').get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));h.sort((a,b)=>tsv(b.timestamp)-tsv(a.timestamp));setHist(h.slice(0,200));LOG('ok','היסטוריה נטענה: '+h.length+' רשומות (fromCache='+s.metadata.fromCache+')')}).catch(e=>LOG('error','טעינת היסטוריה נכשלה: '+(e.code||'')+' — '+(e.message||e)));db.collection('bioAnswers').get().then(s=>{const b=[];s.forEach(d=>b.push({id:d.id,...d.data()}));b.sort((a,b2)=>tsv(b2.created)-tsv(a.created));setBios(b);LOG('ok','תשובות ממוחשבות נטענו: '+b.length)}).catch(e=>LOG('error','טעינת תשובות ממוחשבות נכשלה: '+(e.code||'')+' — '+(e.message||e)));},[db,user]);
+    useEffect(()=>{if(!db||!user)return;LOG('info','טוען נתונים…');db.collection('customQuestions').get().then(s=>{const q=[];s.forEach(d=>q.push({id:d.id,...d.data()}));q.sort((a,b)=>tsv(b.created)-tsv(a.created));setCQs(q);LOG('ok','שאלות מותאמות נטענו: '+q.length+' (fromCache='+s.metadata.fromCache+')')}).catch(e=>LOG('error','טעינת שאלות נכשלה: '+(e.code||'')+' — '+(e.message||e)));db.collection('evaluations').get().then(s=>{const h=[];s.forEach(d=>h.push({id:d.id,...d.data()}));h.sort((a,b)=>tsv(b.timestamp)-tsv(a.timestamp));setHist(h.slice(0,200));LOG('ok','היסטוריה נטענה: '+h.length+' רשומות (fromCache='+s.metadata.fromCache+')')}).catch(e=>LOG('error','טעינת היסטוריה נכשלה: '+(e.code||'')+' — '+(e.message||e)));db.collection('bioAnswers').get().then(s=>{const b=[];s.forEach(d=>b.push({id:d.id,...d.data()}));b.sort((a,b2)=>tsv(b2.created)-tsv(a.created));setBios(b);LOG('ok','תשובות ממוחשבות נטענו: '+b.length)}).catch(e=>LOG('error','טעינת תשובות ממוחשבות נכשלה: '+(e.code||'')+' — '+(e.message||e)));db.collection('profile').doc('bguCv').get().then(d=>{if(d.exists){const dt=d.data();if(dt.cv&&dt.cv.length)setBgCv(dt.cv);if(dt.recs)setBgRecs(dt.recs);LOG('ok','קו"ח בן-גוריון נטען')}setBgLoaded(true)}).catch(e=>{setBgLoaded(true);LOG('error','טעינת קו"ח נכשלה: '+(e.code||'')+' — '+(e.message||e))});},[db,user]);
     useEffect(()=>{if(!tOn)return;const iv=setInterval(()=>setTimer(t=>{if(tMode==='down'&&t<=1){setTOn(false);return 0}return tMode==='up'?t+1:t-1}),1000);return()=>clearInterval(iv)},[tOn,tMode]);
     useEffect(()=>{if(ceRef.current)ceRef.current.scrollIntoView({behavior:'smooth'})},[chat]);
     const doLogin=async()=>{setAuthErr('');if(!authEmail.trim()||!authPass){setAuthErr('יש להזין אימייל וסיסמה');return}setAuthBusy(true);try{await firebase.auth().signInWithEmailAndPassword(authEmail.trim(),authPass)}catch(e){const c=e.code||'';let m='שגיאת התחברות, נסה שוב';if(c.indexOf('wrong-password')>=0||c.indexOf('invalid-credential')>=0||c.indexOf('invalid-login')>=0)m='אימייל או סיסמה שגויים';else if(c.indexOf('user-not-found')>=0)m='משתמש לא נמצא';else if(c.indexOf('invalid-email')>=0)m='כתובת אימייל לא תקינה';else if(c.indexOf('too-many-requests')>=0)m='יותר מדי ניסיונות. נסה שוב בעוד כמה דקות';else if(c.indexOf('network')>=0)m='בעיית רשת, בדוק את החיבור';LOG('error','כניסה נכשלה: '+c);setAuthErr(m)}setAuthBusy(false)};
     const doLogout=()=>{try{firebase.auth().signOut()}catch(e){}setView('home');setHistDetail(null)};
     const pickQ=()=>setQIdx(Math.floor(Math.random()*allQ.length));
+
+    // ===== קורות חיים בן-גוריון =====
+    const bgSetCv=(i,f,v)=>setBgCv(p=>p.map((x,j)=>j===i?{...x,[f]:v}:x));
+    const bgSaveCv=async()=>{
+        if(!db){alert('אין חיבור למסד.');return}
+        setBgCvBusy(true);
+        try{await db.collection('profile').doc('bguCv').set({cv:bgCv,recs:bgRecs,updated:firebase.firestore.FieldValue.serverTimestamp()},{merge:true});LOG('ok','קו"ח בן-גוריון נשמר')}
+        catch(e){LOG('error','שמירת קו"ח נכשלה: '+(e.code||'')+' — '+(e.message||e));alert('שגיאה בשמירה')}
+        setBgCvBusy(false);
+    };
+    const bgAnalyzeCv=async(i)=>{
+        const item=bgCv[i];const uI=UNIS.bgu;
+        if(!item.a||item.a.trim().length<20){alert('כתוב תשובה מלאה לשאלה זו.');return}
+        setBgCvAnalyzing(i);LOG('info','מנתח קו"ח בן-גוריון — שאלה '+(i+1));
+        const answerText='שאלה: '+(item.q||'')+'\nתשובה: '+item.a;
+        const prompt='Institution: '+uI.name+'\nFormat: '+uI.format+'\nTraits: '+uI.traits+'\nType: BIOGRAPHICAL\n'+answerText;
+        try{
+            const pr=[];
+            if(keys.CLAUDE)pr.push(fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error)return{s:'c',d:null};return{s:'c',d}}).catch(()=>({s:'c',d:null})));
+            if(keys.GEMINI)pr.push(fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,system:RUBRIC})}).then(async r=>{const d=await r.json();if(!r.ok||d.error)return{s:'g',d:null};return{s:'g',d}}).catch(()=>({s:'g',d:null})));
+            const raw=await Promise.allSettled(pr);const P={claude:null,gemini:null};
+            raw.forEach(r=>{if(r.status!=='fulfilled'||!r.value.d)return;const v=r.value;try{if(v.s==='c'){const t=v.d.content?v.d.content[0].text:(v.d.text||'');P.claude=pj(t)}if(v.s==='g')P.gemini=pj(v.d.candidates?.[0]?.content?.parts?.[0]?.text||'')}catch(_){}}); 
+            const scores=[];if(P.claude&&P.claude.total_score!=null)scores.push(P.claude.total_score);if(P.gemini&&P.gemini.total_score!=null)scores.push(P.gemini.total_score);
+            const avg=scores.length?Math.round(scores.reduce((a,b2)=>a+b2,0)/scores.length):null;
+            const analysis={claudeResult:P.claude||null,geminiResult:P.gemini||null,avgScore:avg};
+            const newCv=bgCv.map((x,j)=>j===i?{...x,analysis}:x);setBgCv(newCv);
+            await db.collection('profile').doc('bguCv').set({cv:newCv,recs:bgRecs},{merge:true});
+            LOG('ok','ניתוח קו"ח נשמר (ציון: '+(avg!=null?avg:'—')+')');
+            if(!P.claude&&!P.gemini)alert('הניתוח לא חזר. נסה שוב.');
+        }catch(e){LOG('error','ניתוח קו"ח נכשל: '+(e.message||e));alert('שגיאה בניתוח')}
+        setBgCvAnalyzing(null);
+    };
 
     // ===== פונקציות "התשובות שלי" =====
     const bioReset=()=>{setBioMainQ('');setBioMainAns('');setBioSecs([]);setBioEditId(null);setBioUni(uni)};
@@ -626,6 +664,30 @@ function App(){
 
         {view==='bios'&&<div className="max-w-3xl mx-auto fi">
             <div className="flex justify-between items-center mb-5"><button onClick={()=>{setView('home');bioReset()}} className="text-sm font-bold text-orange-700 bg-orange-50 px-4 py-2 rounded-full">&#8592; חזרה</button><h2 className="text-xl font-black text-slate-800">&#128221; התשובות שלי</h2></div>
+
+            <div className="bg-gradient-to-l from-orange-50 to-white p-5 rounded-2xl border-2 border-orange-100 shadow-sm mb-6">
+                <div className="flex items-center gap-2 mb-1"><span className="text-lg">&#127891;</span><h3 className="text-base font-black text-slate-800">קורות חיים — בן-גוריון</h3></div>
+                <p className="text-xs text-slate-500 mb-4">4 השאלות הביוגרפיות + מכתבי המלצה. בבן-גוריון המראיינים קוראים אותם מראש.</p>
+                {bgCv.map((item,i)=><div key={i} className="bg-white rounded-xl p-3 border mb-3">
+                    <div className="text-xs font-black text-orange-700 mb-2">שאלה {i+1}</div>
+                    <textarea value={item.q} onChange={e=>bgSetCv(i,'q',e.target.value)} dir="rtl" rows="2" placeholder={'נוסח השאלה הביוגרפית ה-'+(i+1)} className="w-full bg-slate-50 border rounded-lg px-3 py-2 text-sm mb-2 resize-y"/>
+                    <div className="flex justify-between items-center mb-1"><label className="text-xs font-bold text-slate-500">התשובה שלי</label>{(()=>{const lim=UNIS.bgu.limit;const cur=item.a.length;const over=cur>lim;return <span className={'text-xs font-bold '+(over?'text-red-500':'text-slate-400')}>{cur}/{lim} תווים{over&&' ⚠️'}</span>})()}</div>
+                    <textarea value={item.a} onChange={e=>bgSetCv(i,'a',e.target.value)} dir="rtl" rows="4" placeholder="התשובה הביוגרפית שלך" className="w-full bg-slate-50 border rounded-lg px-3 py-2 text-sm resize-y mb-2"/>
+                    <div className="flex items-center gap-2">
+                        <button onClick={()=>bgAnalyzeCv(i)} disabled={bgCvAnalyzing===i} className="text-xs font-bold text-white bg-slate-800 px-3 py-1.5 rounded-lg disabled:opacity-50 flex items-center gap-1">{bgCvAnalyzing===i?<Fragment><span className="ld" style={{borderTopColor:'#fff',width:12,height:12}}></span> מנתח...</Fragment>:'\ud83d\udd0d נתח שאלה זו'}</button>
+                        {item.analysis&&item.analysis.avgScore!=null&&<span className="text-sm font-black text-orange-700">ציון: {item.analysis.avgScore}</span>}
+                    </div>
+                    {item.analysis&&(item.analysis.claudeResult||item.analysis.geminiResult)&&<div className="mt-3 pt-3 border-t space-y-3">
+                        {item.analysis.claudeResult&&<RC data={item.analysis.claudeResult} name="Claude Sonnet 4"/>}
+                        {item.analysis.geminiResult&&<RC data={item.analysis.geminiResult} name="Gemini 3.1 Pro"/>}
+                    </div>}
+                </div>)}
+                <div className="bg-white rounded-xl p-3 border mb-3">
+                    <label className="text-xs font-black text-slate-700 block mb-1">&#9993; מכתבי המלצה <span className="font-normal text-slate-400">(חומר רקע — לא מנותח)</span></label>
+                    <textarea value={bgRecs} onChange={e=>setBgRecs(e.target.value)} dir="rtl" rows="4" placeholder="הדבק כאן את תוכן מכתבי ההמלצה (אופציונלי)" className="w-full bg-slate-50 border rounded-lg px-3 py-2 text-sm resize-y"/>
+                </div>
+                <button onClick={bgSaveCv} disabled={bgCvBusy} className="w-full bg-orange-700 text-white font-black py-3 rounded-xl disabled:opacity-50 flex items-center justify-center gap-2">{bgCvBusy?<span className="ld" style={{borderTopColor:'#fff',width:18,height:18}}></span>:'\ud83d\udcbe שמור קורות חיים'}</button>
+            </div>
 
             <div className="bg-white p-5 rounded-2xl border shadow-sm mb-6">
                 <div className="text-sm font-black text-slate-700 mb-3">{bioEditId?'עריכת תשובה':'הוספת תשובה ממוחשבת'}</div>
