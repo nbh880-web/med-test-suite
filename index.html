@@ -545,15 +545,26 @@ function App(){
                 const mData=await mRes.json();
                 if(!mRes.ok||mData.error){LOG('error','מרטין/תשובה נכשלה: '+(mData.error||mRes.status));alert('מרטין: '+(mData.error||''));setMLd(false);return}
                 setChat(p=>[...p,{role:'martin',text:mData.martinText}]);LOG('ok','מרטין ענה');
-                if(mData.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+mData.audioBase64);curARef.current=snd;snd.play()}else{speakTTS(mData.martinText)}
+                if(mData.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+mData.audioBase64);curARef.current=snd;snd.play().catch(err=>{LOG('error','נגינת אודיו נחסמה: '+(err.message||err)+' — עובר ל-TTS דפדפן');speakHebrew(mData.martinText)})}else{speakTTS(mData.martinText)}
                 setMLd(false);
             };
         }catch(e){LOG('error','מרטין קולי — שגיאה: '+e.message);alert('שגיאה: '+e.message);setMLd(false)}
     };
 
     const speakHebrew=(text)=>{if('speechSynthesis' in window){window.speechSynthesis.cancel();const ut=new SpeechSynthesisUtterance(text);ut.lang='he-IL';ut.rate=1.0;window.speechSynthesis.speak(ut)}};
-    const speakTTS=async(text)=>{try{const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});const d=await r.json();if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play()}else{speakHebrew(text)}}catch(e){speakHebrew(text)}};
-    const startMartin=()=>{const q=allQ[Math.floor(Math.random()*allQ.length)];const opening='\u05E9\u05DC\u05D5\u05DD, \u05D0\u05E0\u05D9 \u05DE\u05E8\u05D8\u05D9\u05DF. \u05D0\u05E0\u05D9 \u05DE\u05E8\u05D0\u05D9\u05D9\u05DF \u05D4\u05D9\u05D5\u05DD \u05D1\u05DE\u05D9\u05D5\u05E0\u05D9 \u05D4\u05E7\u05D1\u05DC\u05D4 \u05DC'+UNIS[uni].name+'. \u05D1\u05D5\u05D0 \u05E0\u05EA\u05D7\u05D9\u05DC. '+q.q;setChat([{role:'martin',text:opening}]);setMartinFB(null);setView('martin');setTimeout(()=>speakTTS(opening),500)};
+    const speakTTS=async(text)=>{try{const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text:text})});const d=await r.json();if(d.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+d.audioBase64);curARef.current=snd;snd.play().catch(err=>{LOG('error','TTS נחסם: '+(err.message||err)+' — עובר ל-TTS דפדפן');speakHebrew(text)})}else{speakHebrew(text)}}catch(e){speakHebrew(text)}};
+    const startMartin=()=>{
+        const isBI=uni==='tzfat'||uni==='barilan'||(UNIS[uni]&&(UNIS[uni].name.includes('צפת')||UNIS[uni].name.includes('בר-אילן')));
+        const isBGU=uni==='bgu'||(UNIS[uni]&&UNIS[uni].name.includes('בן-גוריון'));
+        const isHaifa=uni==='haifa'||(UNIS[uni]&&UNIS[uni].name.includes('חיפה'));
+        let openingQ;
+        if(isBI)openingQ='ספר לי קצת על עצמך.';
+        else if(isBGU)openingQ='שלום. בוא נתחיל מהדבר הבסיסי — למה רפואה, ולמה דווקא בבאר שבע?';
+        else if(isHaifa)openingQ='ספר לי על עצמך בקצרה, ומה הביא אותך לרפואה.';
+        else openingQ='ספר לי על עצמך בקצרה.';
+        const opening='שלום, אני ד"ר רון. אני מראיין היום במיוני הקבלה ל'+UNIS[uni].name+'. בוא נתחיל. '+openingQ;
+        setChat([{role:'martin',text:opening}]);setMartinFB(null);setView('martin');setTimeout(()=>speakTTS(opening),500)
+    };
 
     const endInterview=async()=>{if(chat.length<2){alert('קצר מדי.');return}setMLd(true);try{const tr=chat.map(m=>(m.role==='martin'?'מראיין':'מועמד')+': '+m.text).join('\n');const res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:tr,system:COMMITTEE})});const d=await res.json();const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'';const p=pj(t);if(p){setMartinFB(p);LOG('ok','סיכום ראיון מרטין התקבל')}else{LOG('error','סיכום ראיון — פענוח JSON נכשל');alert('שגיאה בפענוח.')}}catch(e){LOG('error','סיכום ראיון נכשל: '+(e.message||e));alert('שגיאה.')}finally{setMLd(false)}};
 
@@ -747,7 +758,7 @@ function App(){
             <div className="text-center mb-8"><h2 className="text-3xl md:text-4xl font-black text-slate-800 mb-3">מוכן למיונים?</h2><p className="text-slate-500">Claude Sonnet 4 &middot; Gemini 3.1 Pro &middot; GPT-4o</p></div>
             <div className="grid md:grid-cols-3 gap-5 mb-8">
                 <button onClick={()=>{setView('multi');setText('');setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9997;&#65039;</div><h3 className="text-lg font-bold mb-1">תרגול כתוב</h3><p className="text-xs text-slate-500">ניתוח משולש + HEXACO מלא</p></button>
-                <button onClick={startMartin} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (מרטין)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
+                <button onClick={startMartin} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#127897;</div><h3 className="text-lg font-bold mb-1">ראיון קולי (ד"ר רון)</h3><p className="text-xs text-slate-500">Deepgram + Claude + Gemini + TTS</p></button>
                 <button onClick={()=>{setView('timed');setText('');setTimer(0);setTOn(false);setResults(null);pickQ()}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#9201;</div><h3 className="text-lg font-bold mb-1">על השעון</h3><p className="text-xs text-slate-500">כתיבה + הקלטה בלחץ זמן</p></button>
                 <button onClick={()=>{bioReset();setView('bios')}} className="bg-white p-7 rounded-3xl border-2 hover:border-orange-500 hover:shadow-lg transition-all text-right group"><div className="text-3xl mb-3 group-hover:scale-110 transition-transform">&#128221;</div><h3 className="text-lg font-bold mb-1">התשובות שלי</h3><p className="text-xs text-slate-500">תשובות ממוחשבות לפי פקולטה</p></button>
             </div>
@@ -800,7 +811,7 @@ function App(){
             {martinFB?(<div className="flex-1 overflow-y-auto p-6 bg-slate-50 sc"><h2 className="text-xl font-black mb-4 text-center">&#128202; דו"ח ועדת קבלה</h2><RC data={martinFB} name="ועדת קבלה"/><button onClick={startMartin} className="w-full mt-4 bg-slate-800 text-white py-3 rounded-xl font-bold">ראיון חדש</button></div>):(
             <Fragment>
                 <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-slate-50 sc">
-                    {chat.length===0&&<div className="text-center text-slate-400 mt-10 space-y-2"><div className="text-4xl">&#127897;</div><div className="font-bold">מרטין מתחיל...</div></div>}
+                    {chat.length===0&&<div className="text-center text-slate-400 mt-10 space-y-2"><div className="text-4xl">&#127897;</div><div className="font-bold">ד"ר רון מתחיל...</div></div>}
                     {chat.map((m,i)=><div key={i} className={'flex '+(m.role==='user'?'justify-end':'justify-start')}><div className={'max-w-[85%] p-4 rounded-2xl text-sm leading-relaxed shadow-sm '+(m.role==='user'?'bg-orange-800 text-white rounded-tl-sm':'bg-white border rounded-tr-sm')}>{m.text}</div></div>)}
                     {mLd&&<div className="flex justify-start"><div className="bg-white border p-4 rounded-2xl rounded-tr-sm flex gap-2 items-center"><span className="ld"></span><span className="text-xs text-slate-400">מעבד...</span></div></div>}
                     <div ref={ceRef}/>
