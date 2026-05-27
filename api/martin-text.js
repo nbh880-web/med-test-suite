@@ -367,7 +367,7 @@ ${BAR_ILAN_BANK}
     const geminiBody = JSON.stringify({
       system_instruction: { parts: [{ text: interviewerSystem }] },
       contents: contents,
-      generationConfig: { temperature: 0.85, maxOutputTokens: 400 }
+      generationConfig: { temperature: 0.85, maxOutputTokens: 800 }
     });
 
     // שרשרת מודלים — Flash מהיר קודם (1-3 שניות), לא חוזה.
@@ -375,6 +375,7 @@ ${BAR_ILAN_BANK}
     const models = ['gemini-2.0-flash', 'gemini-flash-latest', 'gemini-2.0-flash-lite'];
     let martinText = '';
     let modelUsed = '';
+    let finishReason = '';
 
     for (let mi = 0; mi < models.length; mi++) {
       try {
@@ -385,7 +386,11 @@ ${BAR_ILAN_BANK}
         });
         const gData = await gRes.json();
         if (gRes.ok && !gData.error && gData.candidates && gData.candidates.length > 0) {
-          martinText = gData.candidates[0].content?.parts?.[0]?.text || '';
+          // אסוף את כל ה-parts (לא רק הראשון) למקרה ש-Gemini החזיר במקטעים
+          const cand = gData.candidates[0];
+          const parts = cand?.content?.parts || [];
+          martinText = parts.map(p => p.text || '').join('').trim();
+          finishReason = cand?.finishReason || '';
           if (martinText) { modelUsed = models[mi]; break; }
         }
         console.warn('Gemini ' + models[mi] + ' failed:', gRes.status, gData.error?.message || '');
@@ -420,7 +425,8 @@ ${BAR_ILAN_BANK}
       martinText: martinText,
       audioBase64: audioBase64,
       whisper: whisper,
-      modelUsed: modelUsed
+      modelUsed: modelUsed,
+      finishReason: finishReason
     });
   } catch (error) {
     console.error('Martin text error:', error);
