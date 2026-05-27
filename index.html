@@ -544,7 +544,7 @@ function App(){
                 const mRes=await fetch('/api/martin-text',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({userText:userText,chatHistory:[...chat,{role:'user',text:userText}],uni:UNIS[uni].name})});
                 const mData=await mRes.json();
                 if(!mRes.ok||mData.error){LOG('error','מרטין/תשובה נכשלה: '+(mData.error||mRes.status));alert('מרטין: '+(mData.error||''));setMLd(false);return}
-                setChat(p=>[...p,{role:'martin',text:mData.martinText}]);LOG('ok','מרטין ענה');
+                setChat(p=>[...p,{role:'martin',text:mData.martinText}]);LOG('ok','ד"ר רון ענה ('+((mData.martinText||'').length)+' תווים, finishReason='+(mData.finishReason||'?')+', model='+(mData.modelUsed||'?')+')');
                 if(mData.audioBase64){const snd=new Audio("data:audio/mp3;base64,"+mData.audioBase64);curARef.current=snd;snd.play().catch(err=>{LOG('error','נגינת אודיו נחסמה: '+(err.message||err)+' — עובר ל-TTS דפדפן');speakHebrew(mData.martinText)})}else{speakTTS(mData.martinText)}
                 setMLd(false);
             };
